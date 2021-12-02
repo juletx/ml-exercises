@@ -113,7 +113,7 @@ outlierness = LOF(dataset=spambaseNONSPAM, k=5)
 names(outlierness) <- 1:nrow(spambaseNONSPAM)
 sort(outlierness, decreasing=TRUE)
 hist(outlierness)
-which(outlierness > 2.0)
+which(outlierness > 20.0)
 ```
 
 # Autoencoder
@@ -135,30 +135,31 @@ input data in the output?
 
 ```{r}
 library(h2o)
-h2.init()
-protate_path = sytem.file("extdata", "../data/spambase.csv", package="h2o")
-prostate = h2o.importFile(path = prostate_path)
-colnames(prostate)
-dim(prostate)
+h2o.init(port = 50001)
+spambase = h2o.importFile(path = "../data/spambase.csv")
+spambaseNONSPAM = spambase[spambase$C58 == 0,]
+spambaseNONSPAM = spambaseNONSPAM[,-58]
+colnames(spambaseNONSPAM)
+dim(spambaseNONSPAM)
 
 # learn autoencoder with 2 hidden layers of 10 units each
-autoencoder_model = h2o.deeplearning(x=3:9,
-                                     training_frame=prostate, 
+autoencoder_model = h2o.deeplearning(x=1:57,
+                                     training_frame=spambaseNONSPAM, 
                                      autoencoder=TRUE,
                                      hidden=c(10,10),
                                      epochs=5)
 
 # features in the autoencoder's first hidden layer
-deep_features_layer1 = h2o.deepfeatures(autoencoder_model, prostate, layer=1)
+deep_features_layer1 = h2o.deepfeatures(autoencoder_model, spambaseNONSPAM, layer=1)
 
 # further supervised models can be trained with these features
 head(deep_features_layer1)
 
 # reconstruction error per sample ~ outlierness indicative
-reconstruction_error = h2o.anomaly(autoencoder_model, prostate)
+reconstruction_error = h2o.anomaly(autoencoder_model, spambaseNONSPAM)
 head(reconstruction_error)
 reconstruction_error = as.data.frame(reconstruction_error)
 plot(sort(reconstruction_error$Reconstruction.MSE), main="Reconstruction Error")
-which(reconstruction_error > 0.15)
+which(reconstruction_error > 0.02)
 ```
 

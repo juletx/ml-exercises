@@ -1,6 +1,6 @@
 library(h2o)
-h2o.init()
-protate_path = sytem.file("extdata", "prostate.csv", package="h2o")
+h2o.init(port = 50001)
+prostate_path = system.file("extdata", "prostate.csv", package="h2o")
 prostate = h2o.importFile(path = prostate_path)
 colnames(prostate)
 dim(prostate)
