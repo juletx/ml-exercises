@@ -1,67 +1,125 @@
 ---
 title: 'RSSL: Semi-Supervised Learning in R'
-output: html_notebook
+output:
+  html_notebook: 
+    toc: yes
+    toc_float: yes
+    number_sections: yes
 ---
 
 ![Semi-Supervised Learning](../images/semi_supervised_learning.png)
 
-This R package provides implementations of several semi-supervised learning methods. The code can be found on [Github](https://github.com/jkrijthe/RSSL). It is described in the following paper: [arXiv](https://arxiv.org/pdf/1612.07993.pdf).
+RSSL provides implementations of several semi-supervised learning methods. The code can be found on [Github](https://github.com/jkrijthe/RSSL). It is described in the following paper: [arXiv](https://arxiv.org/pdf/1612.07993.pdf). More R libraries are used in this notebook for visualization.
 
 ```{r}
-library("RSSL")
+library(RSSL)
+library(ggplot2)
+library(grid)
+library(gridExtra)
+library(plot3D)
 set.seed(1)
 ```
 
 # Classifiers
 
 There are many classifiers available in the package. The main types are defined below: Least Squares Classifier, Linear Discriminant Analysis, Nearest Mean Classifier, Support Vector Machine and Logistic Regression. They are used together with Self Learning. `classifiers` is a list of two classifiers, with one supervised classifier and one self learning classifier. Each
-classifier is be a function that accepts 4 arguments: a
+classifier is a function that accepts 4 arguments: a
 numeric design matrix of the labeled objects, a factor of labels,
 a numeric design matrix of unlabeled objects and a factor of
 labels for the unlabeled objects.
 
+## Least Squares Classifier
+
+![Least Squares Classifier](../images/LS.png)
+
 ```{r}
-classifiers_LS <- list("LS"=function(X, y, X_u, y_u) {
-                        LeastSquaresClassifier(X, y, lambda=0)},
-                    "Self"=function(X, y, X_u, y_u) {
-                        SelfLearning(X, y, X_u, LeastSquaresClassifier)})
+classifiers_LS <- list(
+    "LS" = function(X, y, X_u, y_u) {
+        LeastSquaresClassifier(X, y, lambda = 0)
+    },
+    "Self" = function(X, y, X_u, y_u) {
+        SelfLearning(X, y, X_u, LeastSquaresClassifier)
+    }
+)
+```
 
-classifiers_LD <- list("LD"=function(X, y, X_u, y_u) {
-                        LinearDiscriminantClassifier(X, y)},
-                    "Self"=function(X, y, X_u, y_u) {
-                        SelfLearning(X, y, X_u, LinearDiscriminantClassifier)})
+## Linear Discriminant Analysis
 
-classifiers_NM <- list("NM"=function(X, y, X_u, y_u) {
-                        NearestMeanClassifier(X, y)},
-                    "Self"=function(X, y, X_u, y_u) {
-                        SelfLearning(X, y, X_u, NearestMeanClassifier)})
+![Linear Discriminant Analysis](../images/LD.jpg)
 
-classifiers_SVM <- list("SVM"=function(X, y, X_u, y_u) {
-                        SVM(X, y)},
-                    "Self"=function(X, y, X_u, y_u) {
-                        SelfLearning(X, y, X_u, SVM)})
+```{r}
+classifiers_LD <- list(
+    "LD" = function(X, y, X_u, y_u) {
+        LinearDiscriminantClassifier(X, y)
+    },
+    "Self" = function(X, y, X_u, y_u) {
+        SelfLearning(X, y, X_u, LinearDiscriminantClassifier)
+    }
+)
+```
 
-classifiers_LR <- list("LR"=function(X, y, X_u, y_u) {
-                        LogisticRegression(X, y)},
-                    "Self"=function(X, y, X_u, y_u) {
-                        SelfLearning(X, y, X_u, LogisticRegression)})
 
-classifiers <- classifiers_LS
+## Nearest Mean Classifier
+
+![Nearest Mean Classifier](../images/NM.png)
+
+```{r}
+classifiers_NM <- list(
+    "NM" = function(X, y, X_u, y_u) {
+        NearestMeanClassifier(X, y)
+    },
+    "Self" = function(X, y, X_u, y_u) {
+        SelfLearning(X, y, X_u, NearestMeanClassifier)
+    }
+)
+```
+
+
+## Support Vector Machine
+
+![Support Vector Machine](../images/SVM.png)
+
+```{r}
+classifiers_SVM <- list(
+    "SVM" = function(X, y, X_u, y_u) {
+        SVM(X, y)
+    },
+    "Self" = function(X, y, X_u, y_u) {
+        SelfLearning(X, y, X_u, SVM)
+    }
+)
+```
+
+
+## Logistic Regression
+
+![Logistic Regression](../images/LR.jpg)
+
+```{r}
+classifiers_LR <- list(
+    "LR" = function(X, y, X_u, y_u) {
+        LogisticRegression(X, y)
+    },
+    "Self" = function(X, y, X_u, y_u) {
+        SelfLearning(X, y, X_u, LogisticRegression)
+    }
+)
 ```
 
 # Measures
 
-There are five performance measures available: accuracy, error, test loss, labeled loss and train loss.
-`measures` is a list of performance measures that we want to select. I remove error because having both accuracy and error is not necessary.
+There are five performance measures available: accuracy, error, test loss, labeled loss and train loss. `measures` is a list of performance measures that we want to select. Our aim is to improve the accuracy on the test set (or reduce the error). We can look at the losses of each split to know how the model is learning. The time is also an important measure when working with big datasets.
+
+![Measures](../images/measures.png)
 
 ```{r}
-measures <- list("Accuracy" = measure_accuracy,
-                "Error" = measure_error,
-                "Loss Test" = measure_losstest,
-                "Loss Labeled" = measure_losslab,
-                "Loss Train" = measure_losstrain)
-
-measures <- measures[names(measures) != "Error"]
+measures <- list(
+    "Accuracy" = measure_accuracy,
+    "Error" = measure_error,
+    "Loss Test" = measure_losstest,
+    "Loss Labeled" = measure_losslab,
+    "Loss Train" = measure_losstrain
+)
 ```
 
 # Artificial datasets
@@ -69,17 +127,14 @@ measures <- measures[names(measures) != "Error"]
 RSSL offers many artificial datasets. In the next sections I will generate and visualize them.
 
 ![Simulated Datasets. Each can be generated using a function of the form
-generate*, where * should be replaced by the name of the dataset. (alt) indicates
+generateDataset, where Dataset should be replaced by the name of the dataset. (alt) indicates
 non-default parameters were used when calling the function.](../images/artificial_datasets.png)
 
 ## 2ClassGaussian
 
-Generate data from 2 Gaussian distributed classes.
-
 ```{r}
-df <- generate2ClassGaussian(2000, d=2, var=0.6, expected=TRUE)
-
-plot(df[,1],df[,2],col=df$Class,asp=1)
+data <- generate2ClassGaussian(2000, d = 2, var = 0.6, expected = TRUE)
+plot(data[, 1], data[, 2], col = data$Class, asp = 1)
 ```
 
 `LearningCurveSSL` evaluates semi-supervised classifiers for different amounts of
@@ -100,11 +155,13 @@ which takes the number of features or "2d" which takes 2 times the
 number of features.
 
 ```{r}
-lc1 <- LearningCurveSSL(as.matrix(df[,1:2]),
-                        df$Class, classifiers=classifiers, measures=measures,
-                        type="unlabeled", n_l="enough", repeats=3)
+lc <- LearningCurveSSL(as.matrix(data[, 1:2]),
+    data$Class,
+    classifiers = classifiers_LS, measures = measures,
+    type = "unlabeled", n_l = "enough", repeats = 3
+)
 
-plot(lc1)
+plot(lc)
 ```
 
 If `type="fraction"` the total number of objects remains fixed,
@@ -114,124 +171,224 @@ fractions of labeled objects that should be considered, while
 objects left out to serve as the test set.
 
 ```{r}
-lc2 <- LearningCurveSSL(as.matrix(df[,1:2]),
-                        df$Class, classifiers=classifiers, measures=measures,
-                        type="fraction", test_fraction=0.5, repeats=3)
+lc <- LearningCurveSSL(as.matrix(data[, 1:2]),
+    data$Class,
+    classifiers = classifiers_LS, measures = measures,
+    type = "fraction", test_fraction = 0.5, repeats = 3
+)
 
-plot(lc2)
+plot(lc)
 ```
 
 ```{r}
-lc2 <- LearningCurveSSL(as.matrix(df[,1:2]),
-                        df$Class, classifiers=classifiers_LD, measures=measures,
-                        type="fraction", test_fraction=0.5, repeats=3)
+lc <- LearningCurveSSL(as.matrix(data[, 1:2]),
+    data$Class,
+    classifiers = classifiers_LD, measures = measures,
+    type = "fraction", test_fraction = 0.5, repeats = 3
+)
 
-plot(lc2)
+plot(lc)
 ```
 
 ```{r}
-lc2 <- LearningCurveSSL(as.matrix(df[,1:2]),
-                        df$Class, classifiers=classifiers_NM, measures=measures,
-                        type="fraction", test_fraction=0.5, repeats=3)
+lc <- LearningCurveSSL(as.matrix(data[, 1:2]),
+    data$Class,
+    classifiers = classifiers_NM, measures = measures,
+    type = "fraction", test_fraction = 0.5, repeats = 3
+)
 
-plot(lc2)
+plot(lc)
 ```
 
 ```{r}
-lc2 <- LearningCurveSSL(as.matrix(df[,1:2]),
-                        df$Class, classifiers=classifiers_SVM, measures=measures,
-                        type="fraction", test_fraction=0.5, repeats=3)
+#lc <- LearningCurveSSL(as.matrix(data[, 1:2]),
+#    data$Class,
+#    classifiers = classifiers_SVM, measures = measures,
+#    type = "fraction", test_fraction = 0.5, repeats = 3
+#)
 
-plot(lc2)
+#plot(lc)
 ```
 
 ```{r}
-lc2 <- LearningCurveSSL(as.matrix(df[,1:2]),
-                        df$Class, classifiers=classifiers_LR, measures=measures,
-                        type="fraction", test_fraction=0.5, repeats=3)
+lc <- LearningCurveSSL(as.matrix(data[, 1:2]),
+    data$Class,
+    classifiers = classifiers_LR, measures = measures,
+    type = "fraction", test_fraction = 0.5, repeats = 3
+)
 
-plot(lc2)
+plot(lc)
 ```
 
 ## 2ClassGaussian (alt)
 
-Generate data from 2 Gaussian distributed classes.
+```{r}
+data <- generate2ClassGaussian(2000, d = 2, var = 0.6, expected = FALSE)
+plot(data[, 1], data[, 2], col = data$Class, asp = 1)
+```
 
 ```{r}
-df <- generate2ClassGaussian(2000, d=2, var=0.6, expected=FALSE)
+lc <- LearningCurveSSL(as.matrix(data[, 1:2]),
+    data$Class,
+    classifiers = classifiers_LS, measures = measures,
+    type = "fraction", test_fraction = 0.5, repeats = 3
+)
 
-plot(df[,1],df[,2],col=df$Class,asp=1)
+plot(lc)
 ```
+
 
 ## ABA
 
-Generate data from 2 alternating classes.
+```{r}
+data <- generateABA(2000, d = 2, var = 0.6)
+plot(data[, 1], data[, 2], col = data$Class, asp = 1)
+```
 
 ```{r}
-df <- generateABA(2000, d=2, var=0.6)
+lc <- LearningCurveSSL(as.matrix(data[, 1:2]),
+    data$Class,
+    classifiers = classifiers_LS, measures = measures,
+    type = "fraction", test_fraction = 0.5, repeats = 3
+)
 
-plot(df[,1],df[,2],col=df$Class,asp=1)
+plot(lc)
 ```
 
 ## CrescentMoon
 
 ```{r}
-data<-generateCrescentMoon(150,2,1)
-plot(data$X1,data$X2,col=data$Class,asp=1)
+data <- generateCrescentMoon(150, 2, 1)
+plot(data$X1, data$X2, col = data$Class, asp = 1)
+```
+
+```{r}
+lc <- LearningCurveSSL(as.matrix(data[, 2:3]),
+    data$Class,
+    classifiers = classifiers_LS, measures = measures,
+    type = "fraction", test_fraction = 0.5, repeats = 3
+)
+
+plot(lc)
 ```
 
 ## FourClusters
 
 ```{r}
-data <- generateFourClusters(1000,distance=6,expected=TRUE)
-plot(data[,1],data[,2],col=data$Class,asp=1)
+data <- generateFourClusters(1000, distance = 6, expected = TRUE)
+plot(data[, 1], data[, 2], col = data$Class, asp = 1)
 ```
+
+```{r}
+lc <- LearningCurveSSL(as.matrix(data[, 1:2]),
+    data$Class,
+    classifiers = classifiers_LS, measures = measures,
+    type = "fraction", test_fraction = 0.5, repeats = 3
+)
+
+plot(lc)
+```
+
 ## FourClusters (alt)
 
 ```{r}
-data <- generateFourClusters(1000,distance=6,expected=FALSE)
-plot(data[,1],data[,2],col=data$Class,asp=1)
+data <- generateFourClusters(1000, distance = 6, expected = FALSE)
+plot(data[, 1], data[, 2], col = data$Class, asp = 1)
+```
+
+```{r}
+lc <- LearningCurveSSL(as.matrix(data[, 1:2]),
+    data$Class,
+    classifiers = classifiers_LS, measures = measures,
+    type = "fraction", test_fraction = 0.5, repeats = 3
+)
+
+plot(lc)
 ```
 
 ## ParallelPlanes
 
 ```{r}
-data <- generateParallelPlanes(100,3)
-plot(data[,1],data[,2],col=data$Class)
+data <- generateParallelPlanes(100, 3)
+plot(data[, 1], data[, 2], col = data$Class)
+```
+
+```{r}
+lc <- LearningCurveSSL(as.matrix(data[, 1:2]),
+    data$Class,
+    classifiers = classifiers_LS, measures = measures,
+    type = "fraction", test_fraction = 0.5, repeats = 3
+)
+
+plot(lc)
 ```
 
 ## SlicedCookie
 
 ```{r}
-data <- generateSlicedCookie(1000,expected=TRUE)
-plot(data[,1],data[,2],col=data$Class,asp=1)
+data <- generateSlicedCookie(1000, expected = TRUE)
+plot(data[, 1], data[, 2], col = data$Class, asp = 1)
+```
+
+```{r}
+lc <- LearningCurveSSL(as.matrix(data[, 1:2]),
+    data$Class,
+    classifiers = classifiers_LS, measures = measures,
+    type = "fraction", test_fraction = 0.5, repeats = 3
+)
+
+plot(lc)
 ```
 
 ## SlicedCookie (alt)
 
 ```{r}
-data <- generateSlicedCookie(1000,expected=FALSE)
-plot(data[,1],data[,2],col=data$Class,asp=1)
+data <- generateSlicedCookie(1000, expected = FALSE)
+plot(data[, 1], data[, 2], col = data$Class, asp = 1)
+```
+
+```{r}
+lc <- LearningCurveSSL(as.matrix(data[, 1:2]),
+    data$Class,
+    classifiers = classifiers_LS, measures = measures,
+    type = "fraction", test_fraction = 0.5, repeats = 3
+)
+
+plot(lc)
 ```
 
 ## TwoCircles
 
-Generate data from 2 circles, one circle circumscribes the other.
+```{r}
+data <- generateTwoCircles(n = 100, noise_var = 0.2)
+plot(data[, 1], data[, 2], col = data$Class, asp = 1)
+```
 
 ```{r}
-df <- generateTwoCircles(n = 100, noise_var = 0.2)
+lc <- LearningCurveSSL(as.matrix(data[, 1:2]),
+    data$Class,
+    classifiers = classifiers_LS, measures = measures,
+    type = "fraction", test_fraction = 0.5, repeats = 3
+)
 
-plot(df[,1],df[,2],col=df$Class,asp=1)
+plot(lc)
 ```
 
 ## Spirals
 
-Generate Intersecting Spirals (3D).
+```{r}
+data <- generateSpirals(100, sigma = 0.1)
+plot3D::scatter3D(data$x, data$y, data$z, col = data$Class)
+```
 
 ```{r}
-library(plot3D)
-data <- generateSpirals(100, sigma=0.1)
-plot3D::scatter3D(data$x, data$y, data$z, col=data$Class)
+lc <- LearningCurveSSL(as.matrix(data[, 1:2]),
+    data$Class,
+    classifiers = classifiers_LS, measures = measures,
+    type = "fraction", test_fraction = 0.5, repeats = 3
+)
+
+plot(lc)
 ```
 
 # Real datasets
@@ -242,51 +399,73 @@ plot3D::scatter3D(data$x, data$y, data$z, col=data$Class)
 
 ```{r}
 data("iris")
-lc2 <- LearningCurveSSL(as.matrix(iris[1:4]), iris$Species,
-                        classifiers=classifiers, measures=measures,
-                        type="fraction", fracs=seq(0.1,0.8,0.1),
-                        test_fraction=0.5, repeats=3)
+iris[sample(nrow(iris), 10), ]
+```
 
-plot(lc2)
+```{r}
+pairs(iris[1:4], main = "Iris Scatter Plots", pch = 21, bg = c("red", "green3", "blue")[unclass(iris$Species)])
+```
+
+```{r}
+BpSl <- ggplot(iris, aes(Species, Sepal.Length, fill = Species)) +
+    geom_boxplot() +
+    scale_y_continuous("Sepal Length (cm)", breaks = seq(0, 30, by = .5)) +
+    theme(legend.position = "none")
+
+BpSw <- ggplot(iris, aes(Species, Sepal.Width, fill = Species)) +
+    geom_boxplot() +
+    scale_y_continuous("Sepal Width (cm)", breaks = seq(0, 30, by = .5)) +
+    theme(legend.position = "none")
+
+BpPl <- ggplot(iris, aes(Species, Petal.Length, fill = Species)) +
+    geom_boxplot() +
+    scale_y_continuous("Petal Length (cm)", breaks = seq(0, 30, by = .5)) +
+    theme(legend.position = "none")
+
+BpPw <- ggplot(iris, aes(Species, Petal.Width, fill = Species)) +
+    geom_boxplot() +
+    scale_y_continuous("Petal Width (cm)", breaks = seq(0, 30, by = .5)) +
+    theme(legend.position = "none")
+
+# Plot all visualizations
+grid.arrange(BpSl + ggtitle(""),
+    BpSw + ggtitle(""),
+    BpPl + ggtitle(""),
+    BpPw + ggtitle(""),
+    nrow = 2,
+    top = textGrob("Iris Box Plots",
+        gp = gpar(fontsize = 15)
+    )
+)
+```
+
+```{r}
+lc_iris <- LearningCurveSSL(as.matrix(iris[1:4]), iris$Species,
+    classifiers = classifiers_LS, measures = measures,
+    type = "fraction", fracs = seq(0.1, 0.8, 0.1),
+    test_fraction = 0.5, repeats = 3
+)
+
+plot(lc_iris)
 ```
 
 ## Spambase
 
-![Spambase](../images/spambase.png)
+![Spam email](../images/spam.png)
+![Non spam email](../images/nonspam.png)
 
 ```{r}
-spambase <- read.csv("../data/spambase.csv", header=TRUE, sep=",")
-spambase$class = as.factor(spambase$class)
-lc3 <- LearningCurveSSL(as.matrix(spambase[1:57]), spambase$class,
-                        classifiers=classifiers, measures=measures,
-                        type="fraction", fracs=seq(0.1,0.8,0.1),
-                        test_fraction=0.5, repeats=3)
-
-plot(lc3)
+spambase <- read.csv("../data/spambase.csv", header = TRUE, sep = ",")
+spambase$class <- as.factor(spambase$class)
+spambase[sample(nrow(spambase), 10), ]
 ```
 
-## UMIC-SA
-
 ```{r}
-umic_sa <- read.csv("../data/UMIC-SA.csv", header=TRUE, sep=",")
-umic_sa$class = as.factor(umic_sa$class)
-lc4 <- LearningCurveSSL(as.matrix(umic_sa[2:1029]), umic_sa$class,
-                        classifiers=classifiers, measures=measures,
-                        type="fraction", fracs=seq(0.1,0.8,0.1),
-                        test_fraction=0.5, repeats=3)
+lc_spambase <- LearningCurveSSL(as.matrix(spambase[1:57]), spambase$class,
+    classifiers = classifiers_LS, measures = measures,
+    type = "fraction", fracs = seq(0.1, 0.8, 0.1),
+    test_fraction = 0.5, repeats = 3
+)
 
-plot(lc4)
-```
-
-## Epinions
-
-```{r}
-epinions <- read.csv("../data/epinions.csv", header=TRUE, sep=",")
-epinions$class = as.factor(epinions$class)
-lc5 <- LearningCurveSSL(as.matrix(epinions[2:1015]), epinions$class,
-                        classifiers=classifiers, measures=measures,
-                        type="fraction", fracs=seq(0.1,0.8,0.1),
-                        test_fraction=0.5, repeats=3)
-
-plot(lc5)
+plot(lc_spambase)
 ```
