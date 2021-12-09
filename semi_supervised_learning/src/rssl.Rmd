@@ -22,11 +22,21 @@ set.seed(1)
 
 # Classifiers
 
-There are many classifiers available in the package. The main types are defined below: Least Squares Classifier, Linear Discriminant Analysis, Nearest Mean Classifier, Support Vector Machine and Logistic Regression. They are used together with Self Learning. `classifiers` is a list of two classifiers, with one supervised classifier and one self learning classifier. Each
+There are many classifiers available in the package. The main types are defined below: Least Squares Classifier, Linear Discriminant Analysis, Nearest Mean Classifier and Logistic Regression. They are used together with Self Learning and Expectation Maximization. `classifiers` is a list of two classifiers, with one supervised classifier and one self learning classifier. Each
 classifier is a function that accepts 4 arguments: a
 numeric design matrix of the labeled objects, a factor of labels,
 a numeric design matrix of unlabeled objects and a factor of
 labels for the unlabeled objects.
+
+![Classifiers available in RSSL](../images/classifiers.png)
+
+## Self Learning
+
+![Self Learning](../images/SL.png)
+
+## Expectation Maximization
+
+![Expectation Maximization](../images/EM.png)
 
 ## Least Squares Classifier
 
@@ -37,8 +47,11 @@ classifiers_LS <- list(
     "LS" = function(X, y, X_u, y_u) {
         LeastSquaresClassifier(X, y, lambda = 0)
     },
-    "Self" = function(X, y, X_u, y_u) {
+    "SL" = function(X, y, X_u, y_u) {
         SelfLearning(X, y, X_u, LeastSquaresClassifier)
+    },
+    "EM" = function(X, y, X_u, y_u) {
+        EMLeastSquaresClassifier(X, y, X_u)
     }
 )
 ```
@@ -52,8 +65,11 @@ classifiers_LD <- list(
     "LD" = function(X, y, X_u, y_u) {
         LinearDiscriminantClassifier(X, y)
     },
-    "Self" = function(X, y, X_u, y_u) {
+    "SL" = function(X, y, X_u, y_u) {
         SelfLearning(X, y, X_u, LinearDiscriminantClassifier)
+    },
+    "EM" = function(X, y, X_u, y_u) {
+        EMLinearDiscriminantClassifier(X, y, X_u)
     }
 )
 ```
@@ -68,28 +84,14 @@ classifiers_NM <- list(
     "NM" = function(X, y, X_u, y_u) {
         NearestMeanClassifier(X, y)
     },
-    "Self" = function(X, y, X_u, y_u) {
+    "SL" = function(X, y, X_u, y_u) {
         SelfLearning(X, y, X_u, NearestMeanClassifier)
-    }
-)
-```
-
-
-## Support Vector Machine
-
-![Support Vector Machine](../images/SVM.png)
-
-```{r}
-classifiers_SVM <- list(
-    "SVM" = function(X, y, X_u, y_u) {
-        SVM(X, y)
     },
-    "Self" = function(X, y, X_u, y_u) {
-        SelfLearning(X, y, X_u, SVM)
+    "EM" = function(X, y, X_u, y_u) {
+        EMNearestMeanClassifier(X, y, X_u)
     }
 )
 ```
-
 
 ## Logistic Regression
 
@@ -100,7 +102,7 @@ classifiers_LR <- list(
     "LR" = function(X, y, X_u, y_u) {
         LogisticRegression(X, y)
     },
-    "Self" = function(X, y, X_u, y_u) {
+    "SL" = function(X, y, X_u, y_u) {
         SelfLearning(X, y, X_u, LogisticRegression)
     }
 )
@@ -198,16 +200,6 @@ lc <- LearningCurveSSL(as.matrix(data[, 1:2]),
 )
 
 plot(lc)
-```
-
-```{r}
-#lc <- LearningCurveSSL(as.matrix(data[, 1:2]),
-#    data$Class,
-#    classifiers = classifiers_SVM, measures = measures,
-#    type = "fraction", test_fraction = 0.5, repeats = 3
-#)
-
-#plot(lc)
 ```
 
 ```{r}
@@ -309,6 +301,17 @@ plot(lc)
 ## ParallelPlanes
 
 ```{r}
+classifiers_LS_SL <- list(
+    "LS" = function(X, y, X_u, y_u) {
+        LeastSquaresClassifier(X, y, lambda = 0)
+    },
+    "SL" = function(X, y, X_u, y_u) {
+        SelfLearning(X, y, X_u, LeastSquaresClassifier)
+    }
+)
+```
+
+```{r}
 data <- generateParallelPlanes(100, 3)
 plot(data[, 1], data[, 2], col = data$Class)
 ```
@@ -316,7 +319,7 @@ plot(data[, 1], data[, 2], col = data$Class)
 ```{r}
 lc <- LearningCurveSSL(as.matrix(data[, 1:2]),
     data$Class,
-    classifiers = classifiers_LS, measures = measures,
+    classifiers = classifiers_LS_SL, measures = measures,
     type = "fraction", test_fraction = 0.5, repeats = 3
 )
 
@@ -440,8 +443,19 @@ grid.arrange(BpSl + ggtitle(""),
 ```
 
 ```{r}
+classifiers_LS_SL <- list(
+    "LS" = function(X, y, X_u, y_u) {
+        LeastSquaresClassifier(X, y, lambda = 0)
+    },
+    "SL" = function(X, y, X_u, y_u) {
+        SelfLearning(X, y, X_u, LeastSquaresClassifier)
+    }
+)
+```
+
+```{r}
 lc_iris <- LearningCurveSSL(as.matrix(iris[1:4]), iris$Species,
-    classifiers = classifiers_LS, measures = measures,
+    classifiers = classifiers_LS_SL, measures = measures,
     type = "fraction", fracs = seq(0.1, 0.8, 0.1),
     test_fraction = 0.5, repeats = 3
 )
