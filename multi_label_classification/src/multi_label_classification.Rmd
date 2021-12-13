@@ -20,7 +20,7 @@ library(mldr.datasets)
 set.seed(123)
 ```
 
-# NG20 Corpus
+# ng20 Dataset
 
 ```{r}
 summary(ng20)
@@ -38,12 +38,21 @@ ng20 <- remove_skewness_labels(ng20, 10)
 plot(ng20, type = "LB")
 # visual relations among labels
 plot(ng20, type = "LC")
-# an external GUI interface to explore the "ng20" dataset
-# mldrGUI() # press "escape" to exit GUI
 # create a holdout partition: train and predict to evaluate
 # I created a small test partition as the prediction step takes a long time
 ds <- create_holdout_partition(ng20, c(train = 0.90, test = 0.10))
 ```
+
+```{r}
+# an external GUI interface to explore the "ng20" dataset
+mldrGUI() # press "escape" to exit GUI
+```
+
+![NG20 labels](../images/ng20_labels.png)
+
+![NG20 labelsets](../images/ng20_labelsets.png)
+
+![NG20 concurrence](../images/ng20_concurrence.png)
 
 ## Binary Relevance Naive Bayes
 
@@ -83,7 +92,7 @@ resultsCCPerLabel <- multilabel_evaluate(
 resultsCCPerLabel
 ```
 
-# Birds Dataset
+# birds Dataset
 
 ```{r}
 # "birds" dataset to predict the set of birds species
@@ -96,11 +105,20 @@ birds <- remove_skewness_labels(birds, 10)
 plot(birds, type = "LB")
 # visual relations among labels
 plot(birds, type = "LC")
-# an external GUI interface to explore the "birds" dataset
-# mldrGUI() # press "escape" to exit GUI
 # create a holdout partition: train and predict to evaluate
 ds <- create_holdout_partition(birds, c(train = 0.66, test = 0.34))
-```	
+```
+
+```{r}
+# an external GUI interface to explore the "birds" dataset
+mldrGUI() # press "escape" to exit GUI
+```
+
+![Birds labels](../images/birds_labels.png)
+
+![Birds labelsets](../images/birds_labelsets.png)
+
+![Birds concurrence](../images/birds_concurrence.png)
 
 ## Binary Relevance Naive Bayes
 
@@ -140,7 +158,7 @@ resultsCCPerLabel <- multilabel_evaluate(
 resultsCCPerLabel
 ```
 
-# Enron Corpus
+# enron Dataset
 
 ```{r}
 # PROPOSED EXERCISE
@@ -150,20 +168,28 @@ resultsCCPerLabel
 # https://bailando.berkeley.edu/enron/enron_categories.txt
 # https://data.world/brianray/enron-email-dataset
 # where for example "label 2.13" in the lists  is "label B.B13" for enron-labels
-# summary(enron)
 enron = enron()
 summary(enron)
 enron$labels
 enron <- remove_skewness_labels(enron, 10)
-# Type "birds$" for its list of attributes
+# Type "enron$" for its list of attributes
 plot(enron, type = "LB")
 # visual relations among labels
 plot(enron, type = "LC")
-# an external GUI interface to explore the "birds" dataset
-# mldrGUI() # press "escape" to exit GUI
 # create a holdout partition: train and predict to evaluate
 ds <- create_holdout_partition(enron, c(train = 0.66, test = 0.34))
 ```
+
+```{r}
+# an external GUI interface to explore the "enron" dataset
+mldrGUI() # press "escape" to exit GUI
+```
+
+![Enron labels](../images/enron_labels.png)
+
+![Enron labelsets](../images/enron_labelsets.png)
+
+![Enron concurrence](../images/enron_concurrence.png)
 
 ## Binary Relevance Naive Bayes
 
@@ -189,6 +215,138 @@ resultsBRPerLabel
 # Classifier Chain ML strategy with naive Bayes base classifier
 # Define the chain-order between labels: sample a random order
 mychain <- sample(rownames(enron$labels))
+model_CC_NB <- cc(ds$train, "NB", mychain)
+predictionsCC <- predict(model_CC_NB, ds$test)
+resultsCCPerExamples <- multilabel_evaluate(
+    ds$test, predictionsCC,
+    c("example-based")
+)
+resultsCCPerExamples
+resultsCCPerLabel <- multilabel_evaluate(
+    ds$test, predictionsCC,
+    c("label-based")
+)
+resultsCCPerLabel
+```
+
+# emotions Dataset
+
+```{r}
+# "emotions" dataset to predict the set of emotions species
+# that are present, given a ten-second audio clip:
+# https://doi.org/10.1109/MLSP.2013.6661934
+summary(emotions)
+emotions$labels
+emotions <- remove_skewness_labels(emotions, 10)
+# Type "emotions$" for its list of attributes
+plot(emotions, type = "LB")
+# visual relations among labels
+plot(emotions, type = "LC")
+# create a holdout partition: train and predict to evaluate
+ds <- create_holdout_partition(emotions, c(train = 0.66, test = 0.34))
+```
+
+```{r}
+# an external GUI interface to explore the "emotions" dataset
+mldrGUI() # press "escape" to exit GUI
+```
+
+![Emotions labels](../images/emotions_labels.png)
+
+![Emotions labelsets](../images/emotions_labelsets.png)
+
+![Emotions concurrence](../images/emotions_concurrence.png)
+
+## Binary Relevance Naive Bayes
+
+```{r}
+# Binary relevance ML strategy with naive Bayes base classifier
+model_BR_NB <- utiml::br(ds$train, "NB")
+predictionsBR <- predict(model_BR_NB, ds$test)
+resultsBRPerExamples <- multilabel_evaluate(
+    ds$test, predictionsBR,
+    c("example-based")
+)
+resultsBRPerExamples
+resultsBRPerLabel <- multilabel_evaluate(
+    ds$test, predictionsBR,
+    c("label-based")
+)
+resultsBRPerLabel
+```
+
+## Classifier Chain Naive Bayes
+
+```{r}	
+# Classifier Chain ML strategy with naive Bayes base classifier
+# Define the chain-order between labels: sample a random order
+mychain <- sample(rownames(emotions$labels))
+model_CC_NB <- cc(ds$train, "NB", mychain)
+predictionsCC <- predict(model_CC_NB, ds$test)
+resultsCCPerExamples <- multilabel_evaluate(
+    ds$test, predictionsCC,
+    c("example-based")
+)
+resultsCCPerExamples
+resultsCCPerLabel <- multilabel_evaluate(
+    ds$test, predictionsCC,
+    c("label-based")
+)
+resultsCCPerLabel
+```
+
+# genbase Dataset
+
+```{r}
+# "genbase" dataset to predict the set of genbase species
+# that are present, given a ten-second audio clip:
+# https://doi.org/10.1109/MLSP.2013.6661934
+summary(genbase)
+genbase$labels
+genbase <- remove_skewness_labels(genbase, 10)
+# Type "genbase$" for its list of attributes
+plot(genbase, type = "LB")
+# visual relations among labels
+plot(genbase, type = "LC")
+# create a holdout partition: train and predict to evaluate
+ds <- create_holdout_partition(genbase, c(train = 0.66, test = 0.34))
+```
+
+```{r}
+# an external GUI interface to explore the "genbase" dataset
+mldrGUI() # press "escape" to exit GUI
+```
+
+![Genbase labels](../images/genbase_labels.png)
+
+![Genbase labelsets](../images/genbase_labelsets.png)
+
+![Genbase concurrence](../images/genbase_concurrence.png)
+
+## Binary Relevance Naive Bayes
+
+```{r}
+# Binary relevance ML strategy with naive Bayes base classifier
+model_BR_NB <- utiml::br(ds$train, "NB")
+predictionsBR <- predict(model_BR_NB, ds$test)
+resultsBRPerExamples <- multilabel_evaluate(
+    ds$test, predictionsBR,
+    c("example-based")
+)
+resultsBRPerExamples
+resultsBRPerLabel <- multilabel_evaluate(
+    ds$test, predictionsBR,
+    c("label-based")
+)
+resultsBRPerLabel
+```
+
+## Classifier Chain Naive Bayes
+
+```{r}	
+# Classifier Chain ML strategy with naive Bayes base classifier
+# Define the chain-order between labels: sample a random order
+mychain <- sample(rownames(genbase$labels))
 model_CC_NB <- cc(ds$train, "NB", mychain)
 predictionsCC <- predict(model_CC_NB, ds$test)
 resultsCCPerExamples <- multilabel_evaluate(
