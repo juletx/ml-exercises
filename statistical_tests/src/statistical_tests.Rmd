@@ -1,0 +1,111 @@
+---
+title: "Statistical Tests in R"
+output:
+  html_notebook: 
+    toc: yes
+    toc_float: yes
+    number_sections: yes
+---
+
+# Spambase dataset
+
+```{r}
+spambase <- read.csv(file = "../data/spambase.csv", header = TRUE, sep = ",")
+table(spambase$class)
+```
+
+# Evaluation technique: 10 fold crossvalidation
+
+Two types of classifiers
+
+Evaluation metric: accuracy
+
+## Naive Bayes
+
+```{r}
+set.seed(123)
+library(caret)
+trctrl <- trainControl(method = "cv", number = 10, savePredictions = TRUE)
+nb_fit <- train(factor(class) ~ ., data = spambase, method = "naive_bayes", trControl = trctrl, tuneLength = 0)
+nb_fit
+```
+
+```{r}
+library(tidyverse)
+pred <- nb_fit$pred
+pred$equal <- ifelse(pred$pred == pred$obs, 1, 0)
+eachfold <- pred %>%
+    group_by(Resample) %>%
+    summarise_at(
+        vars(equal),
+        list(Accuracy = mean)
+    )
+eachfold
+```
+
+```{r}
+ggplot(data=eachfold, aes(x=Resample, y=Accuracy, group=1)) +
+geom_boxplot(color="maroon") +
+geom_point() +
+theme_minimal()
+```
+
+## KNN
+
+```{r}
+library(caret)
+trctrl <- trainControl(method = "cv", number = 10, savePredictions = TRUE)
+nb_fit <- train(factor(class) ~ ., data = spambase, method = "knn", trControl = trctrl, tuneLength = 0)
+nb_fit
+```
+
+```{r}
+library(tidyverse)
+pred <- nb_fit$pred
+pred$equal <- ifelse(pred$pred == pred$obs, 1, 0)
+eachfold2 <- pred %>%
+    group_by(Resample) %>%
+    summarise_at(
+        vars(equal),
+        list(Accuracy = mean)
+    )
+eachfold2
+```
+```{r}
+ggplot(data=eachfold2, aes(x=Resample, y=Accuracy, group=1)) +
+geom_boxplot(color="maroon") +
+geom_point() +
+theme_minimal()
+```
+
+
+# Kolmogorov-Smirnov Normality Test
+
+```{r}
+library(nortest)
+library(EnvStats)
+lillie.test(eachfold$Accuracy)
+hist(eachfold$Accuracy, main = "Main", xlab = "value", border = "light blue", col = "blue", las = 1)
+qqPlot(eachfold$Accuracy, y = NULL, distribution = "norm", param.list = list(mean = mean(eachfold$Accuracy), sd = sd(eachfold$Accuracy)))
+```
+
+```{r}
+library(nortest)
+library(EnvStats)
+lillie.test(eachfold2$Accuracy)
+hist(eachfold2$Accuracy, main = "Main", xlab = "value", border = "light blue", col = "blue", las = 1)
+qqPlot(eachfold2$Accuracy, y = NULL, distribution = "norm", param.list = list(mean = mean(eachfold2$Accuracy), sd = sd(eachfold2$Accuracy)))
+```
+
+# Wilcox Rank Signed Test
+
+Paired or non paired?
+
+Risk/Threshold: p < 0.05
+
+Non-paired
+
+```{r}
+library(stats)
+wilcox.test(eachfold$Accuracy, eachfold2$Accuracy, alternative = "two.sided", paired = FALSE, exact = FALSE, correct = TRUE)
+```
