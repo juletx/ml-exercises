@@ -7,3 +7,5 @@
 ## [Multi-Label Classification in R](https://juletx.github.io/ml-exercises/multi_label_classification/src/multi_label_classification.nb.html)
 
 ## [Statistical Tests in R](https://juletx.github.io/ml-exercises/statistical_tests/src/statistical_tests.nb.html)
+
+## [Text Processing in R](https://juletx.github.io/ml-exercises/text_processing/src/text_processing.nb.html)
