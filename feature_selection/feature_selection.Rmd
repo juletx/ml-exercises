@@ -1,0 +1,22 @@
+---
+title: 'Feature Selection in R'
+output:
+  html_notebook: 
+    toc: yes
+    toc_float: yes
+    number_sections: yes
+---
+
+- Use spambase dataset
+- Learn a classifier with all the features. (Random Forest)
+    - Estimate its goodness by 10 fold cross-validation.
+- Do feature extraction (optional, PCA)
+- Do feature selection.
+    1. Univariate FS
+        - calculate correlation between each term and the class.
+        - build a classifier with the top 10 features
+
+    2. Multivariate FS
+        - Correlated FS
+        - Wrapper FS
+        - Search Heuristic -> Greedy stepwise (add features while improving)

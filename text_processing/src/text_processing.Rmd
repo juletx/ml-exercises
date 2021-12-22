@@ -1,5 +1,5 @@
 ---
-title: 'A short introduction to the `tm` (text mining) package in `R`: text processing'
+title: 'Text processing in R'
 output:
   html_notebook: 
     toc: yes
@@ -77,6 +77,7 @@ sci.rel.dtm.80 <- removeSparseTerms(sci.rel.dtm, sparse = 0.8)
 sci.rel.dtm.80
 sci.rel.dtm.90 <- removeSparseTerms(sci.rel.dtm, sparse = 0.9)
 sci.rel.dtm.90
+save(list = c("sci.rel.dtm.80", "sci.rel.dtm.90"), file = "../data/sci.rel.dtm.Rdata")
 ```
 
 # Convert the "DocumentTerm matrix" to WEKA's *.arff data format
