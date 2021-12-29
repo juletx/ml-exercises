@@ -45,7 +45,7 @@ ds <- create_holdout_partition(ng20, c(train = 0.90, test = 0.10))
 
 ```{r}
 # an external GUI interface to explore the "ng20" dataset
-mldrGUI() # press "escape" to exit GUI
+# mldrGUI() # press "escape" to exit GUI
 ```
 
 ![NG20 labels](../images/ng20_labels.png)
@@ -111,7 +111,7 @@ ds <- create_holdout_partition(birds, c(train = 0.66, test = 0.34))
 
 ```{r}
 # an external GUI interface to explore the "birds" dataset
-mldrGUI() # press "escape" to exit GUI
+# mldrGUI() # press "escape" to exit GUI
 ```
 
 ![Birds labels](../images/birds_labels.png)
@@ -182,7 +182,7 @@ ds <- create_holdout_partition(enron, c(train = 0.66, test = 0.34))
 
 ```{r}
 # an external GUI interface to explore the "enron" dataset
-mldrGUI() # press "escape" to exit GUI
+# mldrGUI() # press "escape" to exit GUI
 ```
 
 ![Enron labels](../images/enron_labels.png)
@@ -248,7 +248,7 @@ ds <- create_holdout_partition(emotions, c(train = 0.66, test = 0.34))
 
 ```{r}
 # an external GUI interface to explore the "emotions" dataset
-mldrGUI() # press "escape" to exit GUI
+# mldrGUI() # press "escape" to exit GUI
 ```
 
 ![Emotions labels](../images/emotions_labels.png)
@@ -314,7 +314,7 @@ ds <- create_holdout_partition(genbase, c(train = 0.66, test = 0.34))
 
 ```{r}
 # an external GUI interface to explore the "genbase" dataset
-mldrGUI() # press "escape" to exit GUI
+# mldrGUI() # press "escape" to exit GUI
 ```
 
 ![Genbase labels](../images/genbase_labels.png)
