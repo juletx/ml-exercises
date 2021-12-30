@@ -13,10 +13,6 @@ Once the document-term matrix with an specific sparseness value is elected and d
 
 You have already realized that `R` works by creating “objects” and consulting their attributes. Objects are of different types: and this constrains the type of operations that can be applied to each object. For example, text preprocessing operations can only be applied to an object of `VCorpus` type. On the other hand, machine learning operations (e.g. learning classifiers) can not be applied to a `VCorpus` type object: it has to be transformed (i.e. “casting”) to a data-matrix or data-frame type.
 
-```{r}
-load(file = "../../text_processing/data/sci.rel.dtm.Rdata")
-```
-
 # Clustering of words with similar patterns of occurrences across documents
 
 We try to find clusters of words with hierarchical clustering, a popular clustering techniques which builds a dendogram to iteratively group pairs of similar objects. To do so, a matrix which has removed sparse is needed: the starting point is the 0.8 sparseness-value matrix. After the application of the matrix-casting operator, number of occurrences are scaled: first column (term) mean is substracted, and then this is divided by its standard deviation. It is needed to calculate the distance between pairs of objects (terms): these are saved in `distMatrix`. The `dist` operator performs this calculation between pairs of rows of the provided matrix. As terms appear in the columns of the document-term matrix (`sci.rel.dtm.80`), it is needed to be transposed by means of the `t` operator. The clustering-dendogram is built with the `hclust` operator. It needs as input the calculated distance matrix between pairs of terms and a criteria to decide which pair of clusters to be consecutively joined in the bottom-up dendogram. In this case, the “complete” criteria takes into account the maximum distance between any pair of objects (terms) of both clusters to be merged. Heigth in the dendogram denotes the *distance* between a merged pair of clusters.
