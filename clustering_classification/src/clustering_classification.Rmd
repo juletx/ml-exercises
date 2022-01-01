@@ -57,7 +57,7 @@ The `caret` [2, 1] package is the reference tool for building supervised classif
 
 Very useful: the cheatsheet of caret: https://github.com/CABAH/learningRresources/blob/main/cheatsheets/caret.pdf. Its principal functions illustrated in a single page.
 
-### Create a "Train-Test" partition for classifier validation
+## Create a "Train-Test" partition for classifier validation
 
 Before learning a classification model it is needed to define the subsets of samples (documents) to train and test the it. The `createDataPartition` produces a train-test partition of our corpus of 968 documents. This will be maintained during the whole pipeline of analysis. Test samples won’t be used for any modeling decision:only to predict their class and create a confusion matrix. Consult the parameters of `createDataPartition`, as well as other two functions with similar purposes, `createFolds` and `createResample`. A list of randomly sampled numbers (object `inTrain`), as index numbers, is used to partition the whole corpus in two `R` objects.
 
@@ -70,6 +70,8 @@ training <- sci.rel.dtm.90.ML.matrix[inTrain, ]
 testing <- sci.rel.dtm.90.ML.matrix[-inTrain, ]
 nrow(training)
 ```
+
+## Selection of supervised classification algorithms 
 
 We now can start training and testing different supervised classification models. train function implements the building process. Check its parameters: among them, we highlight the following:
 
@@ -91,6 +93,8 @@ Take into account the following facts about the model-training step:
 
 * `caret` supports more than 150 supervised classification and regression algorithms. A small portion of them are learned by means of the software of the package itself. The majority of the algorithms are learned by other `R` packages which are conveniently accessed by `caret`.
 
+## Internal performance estimation in the training partition
+
 ```{r}
 # fixing the performance estimation procedure
 ctrl <- trainControl(method = "repeatedcv", repeats = 3)
@@ -99,6 +103,7 @@ svmModel3x10cv
 knnModel3x10cv <- train(type ~ ., data = training, method = "knn", trControl = ctrl)
 knnModel3x10cv
 ```
+## Tuning of the parameters of the selected classifiers
 
 The training process can still be enriched with extra parameters in the `trainControl` function: `summaryFunction` controls the type of evaluation metrics. In binary classification problems (e.g. “science” versus “religion”) the `twoClassSummary` option displays [area under the ROC curve](http://en.wikipedia.org/wiki/Receiver_operating_characteristic), sensitity-recall and specificity metrics. To do so, it is also needed to activate the `classProbs` option which saves the probability that the classifier assigns to each sample belonging to each class-value.
 
@@ -115,6 +120,7 @@ knnModel3x10cvROC <- train(type ~ .,
 knnModel3x10cvROC
 plot(knnModel3x10cvROC)
 ```
+## Predict the class-type of future unseen-unlabeled texts
 
 In order to predict the class value of unseen documents of the test partition caret uses the classifier which shows the best accuracy estimation of their parameters. Function predict implements this functionality. Consult its parameters. The `type` parameter, by means of its `probs` value, outputs the probability of test each sample belonging to each class (“a-posteriori” probability). On the other hand, the `raw` value outputs the class value with the largest probability. By means of the `raw` option the confusion matrix can be calculated: this crosses, for each test sample, predicted with real class values.
 
@@ -122,6 +128,8 @@ In order to predict the class value of unseen documents of the test partition ca
 svmModelClasses <- predict(svmModel3x10cv, newdata = testing, type = "raw")
 confusionMatrix(data = svmModelClasses, testing$type)
 ```
+
+## Statistical comparison between two classifiers by means of t-test
 
 Can a statistical comparison be performed between the 3x10cv validation results of K-NN and SVM? Note than in our case, due to the 3 repetitions of the 10-fold cross-validation process, there are 30 resampling results for each classifier. First, results of both classifiers are crossed using the `resamples` function. As the `set.seed` did not change, the same paired cross-validation subsets of samples were used for both classifiers. This forces to use a paired t-test to calculate the significance of the differences between both classifiers. A simple plot is drawn, showing the accuracy differences between both models for each of the 30 cross-validation folds: note that svm has a better accuracy than knn for all the cross-validation fold results (Figure 2).
 
