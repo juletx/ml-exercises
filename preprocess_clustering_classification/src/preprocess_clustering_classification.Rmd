@@ -9,51 +9,7 @@ output:
 
 # Creation
 
-## 20 NewsGroup dataset
-
-The [20 NewsGroup dataset](http://qwone.com/~jason/20Newsgroups/) is a popular NLP benchmark collection of approximately 20, 000 newsgroup documents, partitioned in 20 predefined thematic newsgroups. This tutorial is completed with the “20news-bydate.tar.gz” compressed file: you can find its link in the middle of the webpage. Unzip the compressed file: training and testing folders are created. Each of them contains 20 folders: each containing the text documents belonging to one newsgroup. We focus the tutorial on training “sci.electronics” and “talk.religion.misc” groups-folders. Focus in ‘training folders’ of “sci.electronics” and “talk.religion.misc”. We are going to treat them as documents belonging to two different classes-topics: science or religion.
-
-Help for a function in R is obtained by invoking `?VCorpus` or `help(VCorpus)`. A good way to consult the different functions (and parameters) of each package is the https://www.rdocumentation.org/ community. In our case, the functions of the tm package, grouped alphabetically, can be consulted in https://www.rdocumentation.org/packages/tm/. I consider it as **mandatory** to develop your own text-preprocessing pipeline for your text and corpus. Searching in the web for the specific function, followed by the R term, usually produces good helping results.
-
-We start by **reading the documents of each subdirectory** (annotated document class) and loading them in a volatile corpora structure. Function inspect displays detailed information of the corpus. It is first needed to fix R in the working directory which saves the data-corpus, as previously exposed.
-
-```{r}
-library(tm)
-sci.elec <- VCorpus(DirSource("../../text_processing/data/sci.electronics"), readerControl = list(language = "en"))
-talk.religion <- VCorpus(DirSource("../../text_processing/data/talk.religion.misc"), readerControl = list(language = "en"))
-sci.elec # dimension of the corpus
-inspect(sci.elec[1]) # first document of the corpus, or sci.elec.train[[1]]
-inspect(sci.elec[1:3]) # first three documents of the corpus
-```
-
-## Retrieve text and create a corpus from html pages
-
-It is also easy to retrieve text in HTML format from the web by means of R functionalities. A simple example can be to retrieve the “Indemnifications” sections of a “Terms of Services” webpage of GoogleAnalytics. The readLines command outputs a vector of character strings, each component storing a line. The text of interest exists from line 302 through 325. The HTML tags are removed. Now, by means of the tm package, the vector of character strings can be converted into a corpus of text using consecutively the VectorSource and the VCorpus functions.
-
-```{r}
-indemnifications.HTML.page <- readLines("https://www.google.com/analytics/terms/us.html")
-length(indemnifications.HTML.page)
-text.data <- indemnifications.HTML.page[302:325] # 24 lines of desired text
-text.data <- gsub(pattern = "<p>", replacement = "", x = text.data)
-text.data <- gsub(pattern = "</p>", replacement = "", x = text.data)
-text.data <- gsub(pattern = "</h2>", replacement = "", x = text.data)
-text.data <- gsub(pattern = "<h2>", replacement = "", x = text.data)
-text.data
-text.data <- VectorSource(text.data) # interpreting each element of the vector as a document
-text.data.corpus <- VCorpus(text.data) # from document list to corpus
-```
-
-## Retrieve text and create a corpus from files (stored in disk)
-
-Other common practice to retrieve text is by means of the examples stored by R packages. In this case, when installing the tm package a set of document collections are stored in hard disk. Among them, a subset of the popular “Reuters-21578” collection. The system.file function points the subdirectory-tree that has the documents of interest in our package. When reading the text, an specific XML reader developed by the community, known as “readReut21578XMLasPlain”, is needed.
-
-```{r}
-reut21578 <- system.file("texts", "crude", package = "tm")
-reut21578
-reuters <- VCorpus(DirSource(reut21578), readerControl = list(reader = readReut21578XMLasPlain))
-```
-
-## Retrieve text and create an annotated corpus from Twitter: using rtweet or twitteR packages
+## twitteR
 
 A fashion way to retrieve text is via Twitter posts. The twitteR library provides access to Twitter data. Twitter marks its use as the ‘official’ way to download its tweets. (In case you have problems with twitter package, I show you an alternative at the end of this subsection)
 
@@ -63,13 +19,7 @@ Pay attention, the current Twitter’s link to create Twitter applications is ht
 
 An alternative explanation, by twitter, of the exposed process. The following https://dev.twitter.com/oauth/overview/application-owner-access-tokens also explains the exposed Twitter’s identification-authentification process, which hangs from the general Twitter Developer Documentation https://developer.twitter.com/en/docs/authentication/overview
 
-At a first glance, this process can be felt as cumbersome-complex. Be patient, and after several trials sure that you will be able to authentificate. If the process fails, try installing the httr and base64enc packages; if the error continues, install the twitteR package from GitHub, in this way:
-
-```{r}
-library(twitteR)
-source("twitter_oauth.R")
-setup_twitter_oauth(consumer_key, consumer_secret, access_key, access_secret)
-```
+At a first glance, this process can be felt as cumbersome-complex. Be patient, and after several trials sure that you will be able to authentificate. If the process fails, try installing the httr and base64enc packages; if the error continues, install the twitteR package from GitHub.
 
 While it is true that you can find many short guides to establish the connection with twitter in order to start downloading its text, I just offer you another pointer: https://www.kdnuggets.com/2017/11/extracting-tweets-r.html
 
@@ -77,58 +27,106 @@ Once the authentification is done, tweets of any user or hashtag can be retrieve
 
 Just an idea. To further apply machine learning techniques to learn supervised classifiers, our corpus needs to have documents with different annotations-types: confronting two antagonistic users and downloading their tweets, an annotated, binary corpus can be constructed. After preprocessing and converting the corpus to a data frame format, supervised classification techniques can be applied over it.
 
+## rtweet
+
+In case you had problems with twitteR package, an attractive and ‘easy-to-use’ alternative to Twitter’s ‘official rules’ is based on the use of the rtweet package. The [following link](https://github.com/ropensci/rtweet) seems to be a ‘more updated’ package. I think it is needed to have a Twitter account (username and password). This [set of slides](https://mkearney.github.io/nicar_tworkshop/) offers an easy-to-follow tutorial, showing the pipeline that you need.
+
 ```{r}
-# consult the different ways to retrieve tweets: from an user or from a hashtag
-?userTimeline
-?searchTwitteR
-LadyGagaTweets <- userTimeline(user = "ladygaga", n = 100)
-CristianoRonaldoTweets <- userTimeline(user = "Cristiano", n = 100)
-# beerTweets = searchTwitteR(searchString = "#beer", n=100)
-length(LadyGagaTweets)
-LadyGagaTweets[1:4]
-# convert each tweet to a data frame and combine them by rows
-LadyGagaTweetsDataFrames <- do.call("rbind", lapply(LadyGagaTweets, as.data.frame))
-CristianoRonaldoTweetsDataFrames <- do.call("rbind", lapply(CristianoRonaldoTweets, as.data.frame))
-# consult the different attributes of these object using \£ symbol
-LadyGagaTweetsDataFrames$text
-# combine both frames in a single, binary, annotated set
-annotatedTweetsDataFrames <- rbind(LadyGagaTweetsDataFrames, CristianoRonaldoTweetsDataFrames)
-# interpreting each element of the annotated vector as a document
-annotatedDocuments <- VectorSource(annotatedTweetsDataFrames$text)
-# convert to a corpus: supervised classification to be applied in future steps
-annotatedCorpus <- VCorpus(annotatedDocuments)
+library(rtweet)
+source("twitter_oauth.R")
+token <- create_token(
+    app = app,
+    consumer_key = consumer_key,
+    consumer_secret = consumer_secret,
+    access_token = access_key,
+    access_secret = access_secret
+)
 ```
 
-In case you had problems with twitter package, an attractive and ‘easy-to-use’ alternative to Twitter’s ‘official rules’ is based on the use of the rtweet package. The [following link](https://github.com/ropensci/rtweet) seems to be a ‘more updated’ package. I think it is needed to have a Twitter account (username and password). This [set of slides](https://mkearney.github.io/nicar_tworkshop/) offers an easy-to-follow tutorial, showing the pipeline that you need.
+```{r}
+library(tm)
+# retrieve user tweets
+n = 1000
+clashroyale_tweets <- get_timeline("clashroyale", n = n)
+clashofclans_tweets <- get_timeline("clashofclans", n = n)
+dim(clashroyale_tweets)[1]
+clashroyale_tweets$text[1:5]
+dim(clashofclans_tweets)[1]
+clashofclans_tweets$text[1:5]
+```
+
+```{r}
+# combine both frames in a single, binary, annotated set
+annotated_tweets <- rbind(clashroyale_tweets, clashofclans_tweets)
+# interpreting each element of the annotated vector as a document
+clashroyale_documents <- VectorSource(clashroyale_tweets$text)
+clashofclans_documents <- VectorSource(clashofclans_tweets$text)
+# convert to a corpus: supervised classification to be applied in future steps
+clashroyale_corpus <- VCorpus(clashroyale_documents)
+clashofclans_corpus <- VCorpus(clashofclans_documents)
+# merge, concatenate both groups-corpuses
+annotated_corpus <- c(clashroyale_corpus, clashofclans_corpus) 
+```
 
 # Preprocessing
-
-## Clean text
-
-If you’re working with tweets, use the following line of code to clean your text.
-
-```{r}
-gsub("https\\S*", "", annotatedCorpus$text) 
-gsub("@\\S*", "", annotatedCorpus$text) 
-gsub("amp", "", annotatedCorpus$text) 
-gsub("[\r\n]", "", annotatedCorpus$text)
-gsub("[[:punct:]]", "", annotatedCorpus$text)
-```
 
 ## Apply transformations
 
 Transformations operators to the corpus are applied via `tm_map` function, which applies (maps) a function to all elements of the corpus. As the same transformations will be applied to both “science” and “religion” newsgroups, both corpus are merged using base function `c()`: this `c()` operator concatenates objects. This operation raises a collection of 968 documents. Function tm map applies transformations to corpus objects. The list of available transformations can be obtained consulting the help of ?getTransformations. Function content transformer is used to apply customized transformations. We apply several transformations. As NLP practitioner: consult the help and parameters of each transformation’s functions, of course, use them in a different and richer way then me.
 
 ```{r}
-sci.rel <- c(sci.elec, talk.religion) # merge, concatenate both groups-corpuses
-sci.rel.trans <- tm_map(sci.rel, removeNumbers)
-sci.rel.trans <- tm_map(sci.rel.trans, removePunctuation)
-sci.rel.trans <- tm_map(sci.rel.trans, content_transformer(tolower)) # convert to lowercase
-stopwords("english") # list of english stopwords
-sci.rel.trans <- tm_map(sci.rel.trans, removeWords, stopwords("english"))
-sci.rel.trans <- tm_map(sci.rel.trans, stripWhitespace)
-library(SnowballC) # to access Porter's word stemming algorithm
-sci.rel.trans <- tm_map(sci.rel.trans, stemDocument)
+removeURLs <- function(text) {
+  gsub("http\\S*", "", text)
+}
+removeMentions <- function(text) {
+  gsub("@\\S*", "", text)
+}
+removeHashtags <- function(text) {
+  gsub("#\\S*", "", text)
+}
+removeNewlines <- function(text) {
+  gsub("\\\n", " ", text)
+}
+removeAmpersand <- function(text) {
+  gsub("amp", "", text)
+}
+```
+
+```{r}
+# remove numbers
+annotated_corpus_trans <- tm_map(annotated_corpus, removeNumbers)
+# remove punctuation
+annotated_corpus_trans <- tm_map(annotated_corpus_trans, removePunctuation)
+# remove urls
+annotated_corpus_trans <- tm_map(annotated_corpus_trans, content_transformer(removeURLs))
+# remove mentions
+annotated_corpus_trans <- tm_map(annotated_corpus_trans, content_transformer(removeMentions))
+# remove hastags
+annotated_corpus_trans <- tm_map(annotated_corpus_trans, content_transformer(removeHashtags))
+# remove newlines
+annotated_corpus_trans <- tm_map(annotated_corpus_trans, content_transformer(removeNewlines))
+# remove ampersand
+annotated_corpus_trans <- tm_map(annotated_corpus_trans, content_transformer(removeAmpersand))
+# convert to lowercase
+annotated_corpus_trans <- tm_map(annotated_corpus_trans, content_transformer(tolower))
+# remove english stop words
+annotated_corpus_trans <- tm_map(annotated_corpus_trans, removeWords, stopwords("english"))
+# strip whitespace
+annotated_corpus_trans <- tm_map(annotated_corpus_trans, stripWhitespace)
+# to access Porter's word stemming algorithm
+library(SnowballC)
+annotated_corpus_trans <- tm_map(annotated_corpus_trans, stemDocument)
+```
+
+```{r}
+print(n)
+for (i in 1:5) {
+  print(annotated_corpus_trans[[i]]$content)
+}
+print(n)
+for (i in (n+1):(n+6)) {
+  print(annotated_corpus_trans[[i]]$content)
+}
 ```
 
 ## Create a document-term matrix
@@ -136,86 +134,200 @@ sci.rel.trans <- tm_map(sci.rel.trans, stemDocument)
 After corpus set transformation, a common approach in text mining is to **create a document-term matrix** from a corpus. Its transpose operator creates a term-document matrix. This document-term matrix is the starting point to apply machine-learning modelization techniques such as classification, clustering, etc. Different operations can be applied over this matrix. We can obtain the terms that occur at least, let say, 15 times; or consult the **terms that associate** with at least, for example, by a 0.7 correlation degree with the term “young”.
 
 ```{r}
-sci.rel.dtm <- DocumentTermMatrix(sci.rel.trans)
-dim(sci.rel.dtm)
-inspect(sci.rel.dtm[15:25, 1040:1044]) # inspecting a subset of the matrix
-findFreqTerms(sci.rel.dtm, 15)
-findAssocs(sci.rel.dtm, term = "young", corlimit = 0.7)
+annotated_corpus_dtm <- DocumentTermMatrix(annotated_corpus_trans)
+dim(annotated_corpus_dtm)
+findFreqTerms(annotated_corpus_dtm, 15)
+findAssocs(annotated_corpus_dtm, term = "young", corlimit = 0.7)
 ```
+## Remove sparse terms
 
 After all, it is easy no note the huge degree of sparsity of this matrix: a low amount of non-zero elements. Thus, one of the most important operations is to remove sparse terms, i.e., terms occurring in very few documents. The `sparse` parameter in the `removeSparseTerms` function refers to the maximum sparseness allowed: the smaller its proportion, fewer terms (but more common) will be retained. A “trial and error” approach will finally return a proper number of terms. This matrix will be the starting point for building further machine learning models (in the next tutorial).
 
 ```{r}
-sci.rel.dtm.70 <- removeSparseTerms(sci.rel.dtm, sparse = 0.7)
-sci.rel.dtm.70 # or dim(sci.rel.dtm.70)
-# note that the term-document matrix needs to be transformed (casted)
-# to a matrix form in the following barplot command
-barplot(as.matrix(sci.rel.dtm.70),
+annotated_corpus_dtm_95 <- removeSparseTerms(annotated_corpus_dtm, sparse = 0.95)
+annotated_corpus_dtm_95
+barplot(as.matrix(annotated_corpus_dtm_95),
     xlab = "terms", ylab = "number of occurrences",
-    main = "Most frequent terms (sparseness=0.7)"
+    main = "Most frequent terms (sparseness=0.95)"
 )
-sci.rel.dtm.80 <- removeSparseTerms(sci.rel.dtm, sparse = 0.8)
-sci.rel.dtm.80
-barplot(as.matrix(sci.rel.dtm.80),
+annotated_corpus_dtm_99 <- removeSparseTerms(annotated_corpus_dtm, sparse = 0.99)
+annotated_corpus_dtm_99
+terms = dim(annotated_corpus_dtm_99)[2]
+barplot(as.matrix(annotated_corpus_dtm_99),
     xlab = "terms", ylab = "number of occurrences",
-    main = "Most frequent terms (sparseness=0.8)"
+    main = "Most frequent terms (sparseness=0.99)"
 )
-sci.rel.dtm.90 <- removeSparseTerms(sci.rel.dtm, sparse = 0.9)
-sci.rel.dtm.90
-barplot(as.matrix(sci.rel.dtm.90),
-    xlab = "terms", ylab = "number of occurrences",
-    main = "Most frequent terms (sparseness=0.9)"
-)
-```
-
-## Convert the "DocumentTerm matrix" to WEKA's *.arff data format
-
-Different functionalities of R allow to convert these matrices to the file format demanded by other software tools. For example, the function write.arff of the foreign package converts a data matrix or data frame to the well-known arff (“attribute relation format file”) of WEKA software. Note that a class vector is appended to the document-term matrix, labeling the type of each document. In my case (total numbers can be different in your corpus), the first 591 documents cover the “science-electronics” newgroup
-
-```{r}
-# convert corpus to dataFrame format
-data <- data.frame(as.matrix(sci.rel.dtm.90))
-# create the type vector to be appended
-type <- c(rep("science", 591), rep("religion", 377))
-# install the package for apply the conversion function
-library(foreign)
-write.arff(cbind(data, type), file = "../data/sci.rel.dtm.90.arff")
-# you can try to open the new .arff file in WEKA...
 ```
 
 # Visualization
 
-## Build a wordcloud
+## Time Series Plot
+
+```{r}
+ts_plot(dplyr::group_by(annotated_tweets, screen_name), "month") +
+    ggplot2::theme_minimal() +
+    ggplot2::theme(plot.title = ggplot2::element_text(face = "bold")) +
+    ggplot2::labs(
+        x = "Date", y = "Count",
+        title = "Frequency of Tweets from Clash Royale and Clash of Clans",
+        subtitle = "Tweet counts aggregated by month"
+    )
+```
+
+## Tweet Types Chart
+
+```{r}
+# Remove retweets
+clashroyale_organic <- clashroyale_tweets[clashroyale_tweets$is_retweet == FALSE, ]
+# Remove replies
+clashroyale_organic <- subset(clashroyale_organic, is.na(clashroyale_organic$reply_to_status_id))
+# Remove quotes
+clashroyale_organic <- clashroyale_organic[clashroyale_organic$is_quote == FALSE, ]
+# Keeping only the retweets
+clashroyale_retweets <- clashroyale_tweets[clashroyale_tweets$is_retweet == TRUE, ]
+# Keeping only the replies
+clashroyale_replies <- subset(clashroyale_tweets, !is.na(clashroyale_tweets$reply_to_status_id))
+# Keeping only the quotes
+clashroyale_quotes <- clashroyale_tweets[clashroyale_tweets$is_quote == TRUE, ]
+```
+
+```{r}
+# Creating a data frame
+clashroyale_data <- data.frame(
+    category = c("Organic", "Retweets", "Replies", "Quotes"),
+    count = c(dim(clashroyale_organic)[1], dim(clashroyale_retweets)[1], dim(clashroyale_replies)[1], dim(clashroyale_quotes)[1])
+)
+
+# Adding columns
+clashroyale_data$fraction <- clashroyale_data$count / sum(clashroyale_data$count)
+clashroyale_data$percentage <- clashroyale_data$count / sum(clashroyale_data$count) * 100
+clashroyale_data$ymax <- cumsum(clashroyale_data$fraction)
+clashroyale_data$ymin <- c(0, head(clashroyale_data$ymax, n = -1))
+
+# Rounding the data to two decimal points
+clashroyale_data[, -1] <- round(clashroyale_data[, -1], 2)
+```
+
+```{r}
+# Specify what the legend should say
+library(ggplot2)
+Type <- paste(clashroyale_data$category, clashroyale_data$percentage, "%")
+ggplot(clashroyale_data, aes(ymax = ymax, ymin = ymin, xmax = 4, xmin = 3, fill = Type)) +
+    geom_rect() +
+    coord_polar(theta = "y") +
+    xlim(c(2, 4)) +
+    theme_void() +
+    theme(legend.position = "right") +
+    labs(title = "Clash Royale Tweet Types")
+```
+
+## Worldcloud
 
 Before starting learning the exposed machine learning models, let’s build a wordcloud with the following package [3]. Its `wordcloud()` command needs the list of words and their frequencies as parameters. As the words appear in columns in the document-term matrix, the `colSums` command is used to calculate the word frequencies. In order to complete the needed calculations, note that the term-document matrix needs to be transformed (casted) to a matrix form with the `as.matrix` cast-operator. It is built for the “talk.religion” newsgroup: it covers the 591-968 range of samples-documents (rows) in the document-term matrix. Let’s play yourself with the options-parameters of the wordcloud function: it offers many options to become the wordcloud more attractive, discover by yourself.
 
 ```{r}
 library(wordcloud)
 # calculate the frequency of words and sort in descending order.
-wordFreqs <- sort(colSums(as.matrix(sci.rel.dtm.90)[591:968, ]), decreasing = TRUE)
-wordcloud(words = names(wordFreqs), freq = wordFreqs, max.words=200, random.order=FALSE, colors=brewer.pal(8, "Dark2"))
+wordFreqs <- sort(colSums(as.matrix(annotated_corpus_dtm_99)[1:n, ]), decreasing = TRUE)
+wordcloud(words = names(wordFreqs), freq = wordFreqs, max.words = 200, random.order = FALSE, colors = brewer.pal(8, "Dark2"))
 
-wordFreqs <- sort(colSums(as.matrix(sci.rel.dtm.90)[1:590, ]), decreasing = TRUE)
-wordcloud(words = names(wordFreqs), freq = wordFreqs, max.words=200, random.order=FALSE, colors=brewer.pal(8, "Dark2"))
+wordFreqs <- sort(colSums(as.matrix(annotated_corpus_dtm_99)[(n+1):(n+n), ]), decreasing = TRUE)
+wordcloud(words = names(wordFreqs), freq = wordFreqs, max.words = 200, random.order = FALSE, colors = brewer.pal(8, "Dark2"))
+```
+
+## Hashtag Worldcloud
+
+```{r}
+clashroyale_tweets$hashtags <- as.character(clashroyale_tweets$hashtags)
+clashroyale_tweets$hashtags <- gsub("c\\(", "", clashroyale_tweets$hashtags)
+wordcloud(clashroyale_tweets$hashtags, min.freq=1, scale=c(3.5, .5), random.order=FALSE, rot.per=0.35, colors=brewer.pal(8, "Dark2"))
+
+clashofclans_tweets$hashtags <- as.character(clashofclans_tweets$hashtags)
+clashofclans_tweets$hashtags <- gsub("c\\(", "", clashofclans_tweets$hashtags)
+wordcloud(clashofclans_tweets$hashtags, min.freq=1, scale=c(3.5, .5), random.order=FALSE, rot.per=0.35, colors=brewer.pal(8, "Dark2"))
+```
+
+# Outlier Detection
+
+## Isolation Forest
+
+![Isolation Forest](../images/isolation_forest.png)
+
+```{r}
+library(solitude)
+# Empty tree structure
+iso <- isolationForest$new()
+
+# convert dtm to dataframe
+annotated_corpus_dtm_99_df <- as.data.frame(as.matrix(annotated_corpus_dtm_99))
+
+# Learn the IsolationForest for our data
+iso$fit(annotated_corpus_dtm_99_df)
+
+# predict for our data
+p <- iso$predict(annotated_corpus_dtm_99_df)
+
+# plot anomaly score
+plot(density(p$anomaly_score), main = "Anomaly Score Density")
+
+# Based on the plot, decide the cut-off point
+which(p$anomaly_score > 0.62)
+```
+
+## Local Outlier Factor (LOF)
+
+![Local Outlier Factor (LOF)](../images/local_outlier_factor.png)
+
+```{r}
+library(DDoutlier)
+# calculate "outlierness" score, by LOF
+outlierness <- LOF(dataset = annotated_corpus_dtm_99_df, k = 5)
+
+# assign an index to outlierness values
+names(outlierness) <- seq_len(nrow(annotated_corpus_dtm_99_df))
+
+# plot histogram
+hist(outlierness)
+
+# Based on the plot, decide the cut-off point
+unique(which(outlierness > 3.5))
 ```
 
 # Clustering
 
 ## Clustering of words with similar patterns of occurrences across documents
 
-We try to find clusters of words with hierarchical clustering, a popular clustering techniques which builds a dendogram to iteratively group pairs of similar objects. To do so, a matrix which has removed sparse is needed: the starting point is the 0.8 sparseness-value matrix. After the application of the matrix-casting operator, number of occurrences are scaled: first column (term) mean is substracted, and then this is divided by its standard deviation. It is needed to calculate the distance between pairs of objects (terms): these are saved in `distMatrix`. The `dist` operator performs this calculation between pairs of rows of the provided matrix. As terms appear in the columns of the document-term matrix (`sci.rel.dtm.80`), it is needed to be transposed by means of the `t` operator. The clustering-dendogram is built with the `hclust` operator. It needs as input the calculated distance matrix between pairs of terms and a criteria to decide which pair of clusters to be consecutively joined in the bottom-up dendogram. In this case, the “complete” criteria takes into account the maximum distance between any pair of objects (terms) of both clusters to be merged. Heigth in the dendogram denotes the *distance* between a merged pair of clusters.
+We try to find clusters of words with hierarchical clustering, a popular clustering techniques which builds a dendogram to iteratively group pairs of similar objects. To do so, a matrix which has removed sparse is needed: the starting point is the 0.8 sparseness-value matrix. After the application of the matrix-casting operator, number of occurrences are scaled: first column (term) mean is substracted, and then this is divided by its standard deviation. It is needed to calculate the distance between pairs of objects (terms): these are saved in `distMatrix`. The `dist` operator performs this calculation between pairs of rows of the provided matrix. As terms appear in the columns of the document-term matrix (`annotated_corpus_dtm_80`), it is needed to be transposed by means of the `t` operator. The clustering-dendogram is built with the `hclust` operator. It needs as input the calculated distance matrix between pairs of terms and a criteria to decide which pair of clusters to be consecutively joined in the bottom-up dendogram. In this case, the “complete” criteria takes into account the maximum distance between any pair of objects (terms) of both clusters to be merged. Heigth in the dendogram denotes the *distance* between a merged pair of clusters.
 
 ```{r}
-distMatrix <- dist(t(scale(as.matrix(sci.rel.dtm.80))))
+distMatrix <- dist(t(scale(as.matrix(annotated_corpus_dtm_95))))
 termClustering <- hclust(distMatrix, method = "complete")
 plot(termClustering)
 ```
 
 Instead of hierarchical clustering and following a similar set of functions, the `fpc` package allows to construct a `k-means` clustering.
 
+
+## Clustering of documents
+
 Another type of popular NLP machine-learning analysis is to construct clusters of similar documents based on the frequencies of word occurrences.
 
+```{r}
+distMatrix <- dist(scale(as.matrix(annotated_corpus_dtm_95)))
+groups <- hclust(distMatrix, method = "ward.D")
+plot(groups, cex = 0.9, hang = -1)
+rect.hclust(groups, k = 5)
+```
+
+# Feature Selection
+
+# Feature Extraction
+
 # Classification
+
+The `caret` [4, 5] package is the reference tool for building supervised classification and regression models in R. The following shows the current top machine learning packages in `R`: https://www.kdnuggets.com/2017/02/top-r-packages-machine-learning.html. `caret` package covers all the steps of a classic pipeline: data preprocessing, model building, accuracy estimation, prediction of the type of new samples, and statistical comparision between the performance of different models. Another similar package is `mlr3`. If you are interested, you can find an interesting tutorial: https://mlr3.mlr-org.com/.
+
+Very useful: the cheatsheet of caret: https://github.com/CABAH/learningRresources/blob/main/cheatsheets/caret.pdf. Its principal functions illustrated in a single page.
 
 Our objective is to learn a classifier-model which, based on terms occurrences, predicts the type-topic (“science-electronics” or “religion”) of future documents (post-new, in the case of newsgroups). We have a two-class problem.
 
@@ -224,26 +336,20 @@ Our objective is to learn a classifier-model which, based on terms occurrences, 
 The 0.9 sparseness value document-term matrix is our starting point. We first need to append the class (document type) vector as the last column of the matrix: the first 591 documents cover the “science-electronics” newgroup.
 
 ```{r}
-dim(sci.rel.dtm.90)
-type <- c(rep("science", 591), rep("religion", 377)) # create the type vector
-sci.rel.dtm.90 <- cbind(sci.rel.dtm.90, type) # append
-dim(sci.rel.dtm.90) # consult the updated number of columns
+dim(annotated_corpus_dtm_99)
+type <- c(rep("clashroyale", n), rep("clashofclans", n)) # create the type vector
+annotated_corpus_dtm_99 <- cbind(annotated_corpus_dtm_99, type) # append
+dim(annotated_corpus_dtm_99) # consult the updated number of columns
 ```
 
 This new matrix is the starting point for any software specialized on supervised classification. However, it is needed to concatenate “matrix” and “data.frame” casting operations. The name of the last column is updated.
 
 ```{r}
-sci.rel.dtm.90.ML.matrix <- as.data.frame(as.matrix(sci.rel.dtm.90))
-colnames(sci.rel.dtm.90.ML.matrix)[119] <- "type"
+annotated_corpus_dtm_99_df <- as.data.frame(as.matrix(annotated_corpus_dtm_99))
+colnames(annotated_corpus_dtm_99_df)[terms+1] <- "type"
 ```
 
 The different columns of an object can be accessed by typing the tab after the object name and the $ symbol.
-
-## Classification by R-package `caret`, covering a classic data-mining analysis pipeline
-
-The `caret` [4, 5] package is the reference tool for building supervised classification and regression models in R. The following shows the current top machine learning packages in `R`: https://www.kdnuggets.com/2017/02/top-r-packages-machine-learning.html. `caret` package covers all the steps of a classic pipeline: data preprocessing, model building, accuracy estimation, prediction of the type of new samples, and statistical comparision between the performance of different models. Another similar package is `mlr3`. If you are interested, you can find an interesting tutorial: https://mlr3.mlr-org.com/.
-
-Very useful: the cheatsheet of caret: https://github.com/CABAH/learningRresources/blob/main/cheatsheets/caret.pdf. Its principal functions illustrated in a single page.
 
 ## Create a "Train-Test" partition for classifier validation
 
@@ -252,10 +358,10 @@ Before learning a classification model it is needed to define the subsets of sam
 ```{r}
 library(caret)
 set.seed(107) # a random seed to enable reproducibility
-inTrain <- createDataPartition(y = sci.rel.dtm.90.ML.matrix$type, p = .75, list = FALSE)
+inTrain <- createDataPartition(y = annotated_corpus_dtm_99_df$type, p = .75, list = FALSE)
 str(inTrain)
-training <- sci.rel.dtm.90.ML.matrix[inTrain, ]
-testing <- sci.rel.dtm.90.ML.matrix[-inTrain, ]
+training <- annotated_corpus_dtm_99_df[inTrain, ]
+testing <- annotated_corpus_dtm_99_df[-inTrain, ]
 nrow(training)
 ```
 
@@ -291,22 +397,20 @@ svmModel3x10cv
 knnModel3x10cv <- train(type ~ ., data = training, method = "knn", trControl = ctrl)
 knnModel3x10cv
 ```
+
 ## Tuning of the parameters of the selected classifiers
 
 The training process can still be enriched with extra parameters in the `trainControl` function: `summaryFunction` controls the type of evaluation metrics. In binary classification problems (e.g. “science” versus “religion”) the `twoClassSummary` option displays [area under the ROC curve](http://en.wikipedia.org/wiki/Receiver_operating_characteristic), sensitity-recall and specificity metrics. To do so, it is also needed to activate the `classProbs` option which saves the probability that the classifier assigns to each sample belonging to each class-value.
 
 ```{r}
-library(pROC)
 ctrl <- trainControl(
-    method = "repeatedcv", repeats = 3, classProbs = TRUE,
-    summaryFunction = twoClassSummary
+    method = "repeatedcv", repeats = 3
 )
-knnModel3x10cvROC <- train(type ~ .,
-    data = training, method = "knn", trControl = ctrl,
-    metric = "ROC", tuneLength = 10
+knnModel3x10cvacc <- train(type ~ .,
+    data = training, method = "knn", trControl = ctrl, tuneLength = 10
 )
-knnModel3x10cvROC
-plot(knnModel3x10cvROC)
+knnModel3x10cvacc
+plot(knnModel3x10cvacc)
 ```
 
 ## Predict the class-type of future unseen-unlabeled texts
@@ -316,6 +420,11 @@ In order to predict the class value of unseen documents of the test partition ca
 ```{r}
 svmModelClasses <- predict(svmModel3x10cv, newdata = testing, type = "raw")
 confusionMatrix(data = svmModelClasses, testing$type)
+```
+
+```{r}
+knnModelClasses <- predict(knnModel3x10cv, newdata = testing, type = "raw")
+confusionMatrix(data = knnModelClasses, testing$type)
 ```
 
 ## Statistical comparison between two classifiers by means of t-test
