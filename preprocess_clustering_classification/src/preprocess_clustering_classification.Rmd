@@ -46,7 +46,7 @@ token <- create_token(
 ```{r}
 library(tm)
 # retrieve user tweets
-n = 1000
+n <- 1000
 clashroyale_tweets <- get_timeline("clashroyale", n = n)
 clashofclans_tweets <- get_timeline("clashofclans", n = n)
 dim(clashroyale_tweets)[1]
@@ -65,7 +65,7 @@ clashofclans_documents <- VectorSource(clashofclans_tweets$text)
 clashroyale_corpus <- VCorpus(clashroyale_documents)
 clashofclans_corpus <- VCorpus(clashofclans_documents)
 # merge, concatenate both groups-corpuses
-annotated_corpus <- c(clashroyale_corpus, clashofclans_corpus) 
+annotated_corpus <- c(clashroyale_corpus, clashofclans_corpus)
 ```
 
 # Preprocessing
@@ -75,20 +75,20 @@ annotated_corpus <- c(clashroyale_corpus, clashofclans_corpus)
 Transformations operators to the corpus are applied via `tm_map` function, which applies (maps) a function to all elements of the corpus. As the same transformations will be applied to both “science” and “religion” newsgroups, both corpus are merged using base function `c()`: this `c()` operator concatenates objects. This operation raises a collection of 968 documents. Function tm map applies transformations to corpus objects. The list of available transformations can be obtained consulting the help of ?getTransformations. Function content transformer is used to apply customized transformations. We apply several transformations. As NLP practitioner: consult the help and parameters of each transformation’s functions, of course, use them in a different and richer way then me.
 
 ```{r}
-removeURLs <- function(text) {
-  gsub("http\\S*", "", text)
+remove_urls <- function(text) {
+    gsub("http\\S*", "", text)
 }
-removeMentions <- function(text) {
-  gsub("@\\S*", "", text)
+remove_mentions <- function(text) {
+    gsub("@\\S*", "", text)
 }
-removeHashtags <- function(text) {
-  gsub("#\\S*", "", text)
+remove_hashtags <- function(text) {
+    gsub("#\\S*", "", text)
 }
-removeNewlines <- function(text) {
-  gsub("\\\n", " ", text)
+remove_newlines <- function(text) {
+    gsub("\\\n", " ", text)
 }
-removeAmpersand <- function(text) {
-  gsub("amp", "", text)
+remove_emojis <- function(text) {
+    gsub("[^\x01-\x7F]", "", text)
 }
 ```
 
@@ -98,15 +98,15 @@ annotated_corpus_trans <- tm_map(annotated_corpus, removeNumbers)
 # remove punctuation
 annotated_corpus_trans <- tm_map(annotated_corpus_trans, removePunctuation)
 # remove urls
-annotated_corpus_trans <- tm_map(annotated_corpus_trans, content_transformer(removeURLs))
+annotated_corpus_trans <- tm_map(annotated_corpus_trans, content_transformer(remove_urls))
 # remove mentions
-annotated_corpus_trans <- tm_map(annotated_corpus_trans, content_transformer(removeMentions))
+annotated_corpus_trans <- tm_map(annotated_corpus_trans, content_transformer(remove_mentions))
 # remove hastags
-annotated_corpus_trans <- tm_map(annotated_corpus_trans, content_transformer(removeHashtags))
+annotated_corpus_trans <- tm_map(annotated_corpus_trans, content_transformer(remove_hashtags))
 # remove newlines
-annotated_corpus_trans <- tm_map(annotated_corpus_trans, content_transformer(removeNewlines))
-# remove ampersand
-annotated_corpus_trans <- tm_map(annotated_corpus_trans, content_transformer(removeAmpersand))
+annotated_corpus_trans <- tm_map(annotated_corpus_trans, content_transformer(remove_newlines))
+# remove emojis
+annotated_corpus_trans <- tm_map(annotated_corpus_trans, content_transformer(remove_emojis))
 # convert to lowercase
 annotated_corpus_trans <- tm_map(annotated_corpus_trans, content_transformer(tolower))
 # remove english stop words
@@ -119,13 +119,11 @@ annotated_corpus_trans <- tm_map(annotated_corpus_trans, stemDocument)
 ```
 
 ```{r}
-print(n)
 for (i in 1:5) {
-  print(annotated_corpus_trans[[i]]$content)
+    print(annotated_corpus_trans[[i]]$content)
 }
-print(n)
-for (i in (n+1):(n+6)) {
-  print(annotated_corpus_trans[[i]]$content)
+for (i in (n + 1):(n + 6)) {
+    print(annotated_corpus_trans[[i]]$content)
 }
 ```
 
@@ -137,7 +135,7 @@ After corpus set transformation, a common approach in text mining is to **create
 annotated_corpus_dtm <- DocumentTermMatrix(annotated_corpus_trans)
 dim(annotated_corpus_dtm)
 findFreqTerms(annotated_corpus_dtm, 15)
-findAssocs(annotated_corpus_dtm, term = "young", corlimit = 0.7)
+findAssocs(annotated_corpus_dtm, term = "clan", corlimit = 0.7)
 ```
 ## Remove sparse terms
 
@@ -152,7 +150,7 @@ barplot(as.matrix(annotated_corpus_dtm_95),
 )
 annotated_corpus_dtm_99 <- removeSparseTerms(annotated_corpus_dtm, sparse = 0.99)
 annotated_corpus_dtm_99
-terms = dim(annotated_corpus_dtm_99)[2]
+terms <- dim(annotated_corpus_dtm_99)[2]
 barplot(as.matrix(annotated_corpus_dtm_99),
     xlab = "terms", ylab = "number of occurrences",
     main = "Most frequent terms (sparseness=0.99)"
@@ -211,8 +209,8 @@ clashroyale_data[, -1] <- round(clashroyale_data[, -1], 2)
 ```{r}
 # Specify what the legend should say
 library(ggplot2)
-Type <- paste(clashroyale_data$category, clashroyale_data$percentage, "%")
-ggplot(clashroyale_data, aes(ymax = ymax, ymin = ymin, xmax = 4, xmin = 3, fill = Type)) +
+type <- paste(clashroyale_data$category, clashroyale_data$percentage, "%")
+ggplot(clashroyale_data, aes(ymax = ymax, ymin = ymin, xmax = 4, xmin = 3, fill = type)) +
     geom_rect() +
     coord_polar(theta = "y") +
     xlim(c(2, 4)) +
@@ -228,11 +226,11 @@ Before starting learning the exposed machine learning models, let’s build a wo
 ```{r}
 library(wordcloud)
 # calculate the frequency of words and sort in descending order.
-wordFreqs <- sort(colSums(as.matrix(annotated_corpus_dtm_99)[1:n, ]), decreasing = TRUE)
-wordcloud(words = names(wordFreqs), freq = wordFreqs, max.words = 200, random.order = FALSE, colors = brewer.pal(8, "Dark2"))
+word_freqs <- sort(colSums(as.matrix(annotated_corpus_dtm_99)[1:n, ]), decreasing = TRUE)
+wordcloud(words = names(word_freqs), freq = word_freqs, max.words = 200, random.order = FALSE, colors = brewer.pal(8, "Dark2"))
 
-wordFreqs <- sort(colSums(as.matrix(annotated_corpus_dtm_99)[(n+1):(n+n), ]), decreasing = TRUE)
-wordcloud(words = names(wordFreqs), freq = wordFreqs, max.words = 200, random.order = FALSE, colors = brewer.pal(8, "Dark2"))
+word_freqs <- sort(colSums(as.matrix(annotated_corpus_dtm_99)[(n + 1):(n + n), ]), decreasing = TRUE)
+wordcloud(words = names(word_freqs), freq = word_freqs, max.words = 200, random.order = FALSE, colors = brewer.pal(8, "Dark2"))
 ```
 
 ## Hashtag Worldcloud
@@ -240,11 +238,11 @@ wordcloud(words = names(wordFreqs), freq = wordFreqs, max.words = 200, random.or
 ```{r}
 clashroyale_tweets$hashtags <- as.character(clashroyale_tweets$hashtags)
 clashroyale_tweets$hashtags <- gsub("c\\(", "", clashroyale_tweets$hashtags)
-wordcloud(clashroyale_tweets$hashtags, min.freq=1, scale=c(3.5, .5), random.order=FALSE, rot.per=0.35, colors=brewer.pal(8, "Dark2"))
+wordcloud(clashroyale_tweets$hashtags, min.freq = 1, scale = c(3.5, .5), random.order = FALSE, rot.per = 0.35, colors = brewer.pal(8, "Dark2"))
 
 clashofclans_tweets$hashtags <- as.character(clashofclans_tweets$hashtags)
 clashofclans_tweets$hashtags <- gsub("c\\(", "", clashofclans_tweets$hashtags)
-wordcloud(clashofclans_tweets$hashtags, min.freq=1, scale=c(3.5, .5), random.order=FALSE, rot.per=0.35, colors=brewer.pal(8, "Dark2"))
+wordcloud(clashofclans_tweets$hashtags, min.freq = 1, scale = c(3.5, .5), random.order = FALSE, rot.per = 0.35, colors = brewer.pal(8, "Dark2"))
 ```
 
 # Outlier Detection
@@ -297,12 +295,12 @@ unique(which(outlierness > 3.5))
 
 ## Clustering of words with similar patterns of occurrences across documents
 
-We try to find clusters of words with hierarchical clustering, a popular clustering techniques which builds a dendogram to iteratively group pairs of similar objects. To do so, a matrix which has removed sparse is needed: the starting point is the 0.8 sparseness-value matrix. After the application of the matrix-casting operator, number of occurrences are scaled: first column (term) mean is substracted, and then this is divided by its standard deviation. It is needed to calculate the distance between pairs of objects (terms): these are saved in `distMatrix`. The `dist` operator performs this calculation between pairs of rows of the provided matrix. As terms appear in the columns of the document-term matrix (`annotated_corpus_dtm_80`), it is needed to be transposed by means of the `t` operator. The clustering-dendogram is built with the `hclust` operator. It needs as input the calculated distance matrix between pairs of terms and a criteria to decide which pair of clusters to be consecutively joined in the bottom-up dendogram. In this case, the “complete” criteria takes into account the maximum distance between any pair of objects (terms) of both clusters to be merged. Heigth in the dendogram denotes the *distance* between a merged pair of clusters.
+We try to find clusters of words with hierarchical clustering, a popular clustering techniques which builds a dendogram to iteratively group pairs of similar objects. To do so, a matrix which has removed sparse is needed: the starting point is the 0.8 sparseness-value matrix. After the application of the matrix-casting operator, number of occurrences are scaled: first column (term) mean is substracted, and then this is divided by its standard deviation. It is needed to calculate the distance between pairs of objects (terms): these are saved in `dist_matrix`. The `dist` operator performs this calculation between pairs of rows of the provided matrix. As terms appear in the columns of the document-term matrix (`annotated_corpus_dtm_80`), it is needed to be transposed by means of the `t` operator. The clustering-dendogram is built with the `hclust` operator. It needs as input the calculated distance matrix between pairs of terms and a criteria to decide which pair of clusters to be consecutively joined in the bottom-up dendogram. In this case, the “complete” criteria takes into account the maximum distance between any pair of objects (terms) of both clusters to be merged. Heigth in the dendogram denotes the *distance* between a merged pair of clusters.
 
 ```{r}
-distMatrix <- dist(t(scale(as.matrix(annotated_corpus_dtm_95))))
-termClustering <- hclust(distMatrix, method = "complete")
-plot(termClustering)
+dist_matrix <- dist(t(scale(as.matrix(annotated_corpus_dtm_95))))
+term_clustering <- hclust(dist_matrix, method = "complete")
+plot(term_clustering)
 ```
 
 Instead of hierarchical clustering and following a similar set of functions, the `fpc` package allows to construct a `k-means` clustering.
@@ -313,15 +311,11 @@ Instead of hierarchical clustering and following a similar set of functions, the
 Another type of popular NLP machine-learning analysis is to construct clusters of similar documents based on the frequencies of word occurrences.
 
 ```{r}
-distMatrix <- dist(scale(as.matrix(annotated_corpus_dtm_95)))
-groups <- hclust(distMatrix, method = "ward.D")
+dist_matrix <- dist(scale(as.matrix(annotated_corpus_dtm_95)))
+groups <- hclust(dist_matrix, method = "ward.D")
 plot(groups, cex = 0.9, hang = -1)
 rect.hclust(groups, k = 5)
 ```
-
-# Feature Selection
-
-# Feature Extraction
 
 # Classification
 
@@ -346,22 +340,26 @@ This new matrix is the starting point for any software specialized on supervised
 
 ```{r}
 annotated_corpus_dtm_99_df <- as.data.frame(as.matrix(annotated_corpus_dtm_99))
-colnames(annotated_corpus_dtm_99_df)[terms+1] <- "type"
+colnames(annotated_corpus_dtm_99_df)[terms + 1] <- "type"
+annotated_corpus_dtm_99_df$type <- as.factor(annotated_corpus_dtm_99_df$type)
+annotated_corpus_dtm_99_df <- as.data.frame(sapply(annotated_corpus_dtm_99_df, as.numeric))
+annotated_corpus_dtm_99_df[is.na(annotated_corpus_dtm_99_df)] <- 0
+annotated_corpus_dtm_99_df$type <- as.factor(annotated_corpus_dtm_99_df$type)
 ```
 
 The different columns of an object can be accessed by typing the tab after the object name and the $ symbol.
 
 ## Create a "Train-Test" partition for classifier validation
 
-Before learning a classification model it is needed to define the subsets of samples (documents) to train and test the it. The `createDataPartition` produces a train-test partition of our corpus of 968 documents. This will be maintained during the whole pipeline of analysis. Test samples won’t be used for any modeling decision:only to predict their class and create a confusion matrix. Consult the parameters of `createDataPartition`, as well as other two functions with similar purposes, `createFolds` and `createResample`. A list of randomly sampled numbers (object `inTrain`), as index numbers, is used to partition the whole corpus in two `R` objects.
+Before learning a classification model it is needed to define the subsets of samples (documents) to train and test the it. The `createDataPartition` produces a train-test partition of our corpus of 968 documents. This will be maintained during the whole pipeline of analysis. Test samples won’t be used for any modeling decision:only to predict their class and create a confusion matrix. Consult the parameters of `createDataPartition`, as well as other two functions with similar purposes, `createFolds` and `createResample`. A list of randomly sampled numbers (object `in_train`), as index numbers, is used to partition the whole corpus in two `R` objects.
 
 ```{r}
 library(caret)
 set.seed(107) # a random seed to enable reproducibility
-inTrain <- createDataPartition(y = annotated_corpus_dtm_99_df$type, p = .75, list = FALSE)
-str(inTrain)
-training <- annotated_corpus_dtm_99_df[inTrain, ]
-testing <- annotated_corpus_dtm_99_df[-inTrain, ]
+in_train <- createDataPartition(y = annotated_corpus_dtm_99_df$type, p = .75, list = FALSE)
+str(in_train)
+training <- annotated_corpus_dtm_99_df[in_train, ]
+testing <- annotated_corpus_dtm_99_df[-in_train, ]
 nrow(training)
 ```
 
@@ -392,10 +390,10 @@ Take into account the following facts about the model-training step:
 ```{r}
 # fixing the performance estimation procedure
 ctrl <- trainControl(method = "repeatedcv", repeats = 3)
-svmModel3x10cv <- train(type ~ ., data = training, method = "svmLinear", trControl = ctrl)
-svmModel3x10cv
-knnModel3x10cv <- train(type ~ ., data = training, method = "knn", trControl = ctrl)
-knnModel3x10cv
+svm_3x10cv <- train(type ~ ., data = training, method = "svmLinear", trControl = ctrl)
+svm_3x10cv
+knn_3x10cv <- train(type ~ ., data = training, method = "knn", trControl = ctrl)
+knn_3x10cv
 ```
 
 ## Tuning of the parameters of the selected classifiers
@@ -406,11 +404,11 @@ The training process can still be enriched with extra parameters in the `trainCo
 ctrl <- trainControl(
     method = "repeatedcv", repeats = 3
 )
-knnModel3x10cvacc <- train(type ~ .,
+knn_3x10cvacc <- train(type ~ .,
     data = training, method = "knn", trControl = ctrl, tuneLength = 10
 )
-knnModel3x10cvacc
-plot(knnModel3x10cvacc)
+knn_3x10cvacc
+plot(knn_3x10cvacc)
 ```
 
 ## Predict the class-type of future unseen-unlabeled texts
@@ -418,13 +416,13 @@ plot(knnModel3x10cvacc)
 In order to predict the class value of unseen documents of the test partition caret uses the classifier which shows the best accuracy estimation of their parameters. Function predict implements this functionality. Consult its parameters. The `type` parameter, by means of its `probs` value, outputs the probability of test each sample belonging to each class (“a-posteriori” probability). On the other hand, the `raw` value outputs the class value with the largest probability. By means of the `raw` option the confusion matrix can be calculated: this crosses, for each test sample, predicted with real class values.
 
 ```{r}
-svmModelClasses <- predict(svmModel3x10cv, newdata = testing, type = "raw")
-confusionMatrix(data = svmModelClasses, testing$type)
+svm_classes <- predict(svm_3x10cv, newdata = testing, type = "raw")
+confusionMatrix(data = svm_classes, testing$type)
 ```
 
 ```{r}
-knnModelClasses <- predict(knnModel3x10cv, newdata = testing, type = "raw")
-confusionMatrix(data = knnModelClasses, testing$type)
+knn_classes <- predict(knn_3x10cv, newdata = testing, type = "raw")
+confusionMatrix(data = knn_classes, testing$type)
 ```
 
 ## Statistical comparison between two classifiers by means of t-test
@@ -436,12 +434,85 @@ Using the `diff` function over the `resamps` object which saves the “crossing�
 The interpretation of the p-value has the key. It is related with the risk of erroneously discarding the nullhypothesis of similarity between compared classifiers, when there is no real difference. Roughly speaking, it can also be interpreted as the degree of similarity between both classifiers. A p-value smaller than 0.05 (or 0.1, depending on your interpretation and threshold) alerts about statistically significant differences between both classifiers, https://en.wikipedia.org/wiki/Statistical_significance. That is, when the risk of erroneusly discarding the hypothesis of similarity between both classifiers is low, we assume that there is a statistically significant difference between classifiers.
 
 ```{r}
-resamps <- resamples(list(knn = knnModel3x10cv, svm = svmModel3x10cv))
+resamps <- resamples(list(knn = knn_3x10cv, svm = svm_3x10cv))
 summary(resamps)
 xyplot(resamps, what = "BlandAltman")
 diffs <- diff(resamps)
 summary(diffs)
 ```
+
+# Feature Selection
+
+## Univariate Filters
+
+```{r}
+sbf_ctrl <- sbfControl(functions = rfSBF, method = "repeatedcv", repeats = 3)
+train_ctrl <- trainControl(method = "repeatedcv", repeats = 3)
+svm_3x10cv_sbf <- sbf(type ~ ., data = training, method = "svmLinear", trControl = train_ctrl, sbfControl = sbf_ctrl)
+svm_3x10cv_sbf
+knn_3x10cv_sbf <- sbf(type ~ ., data = training, method = "knn", trControl = train_ctrl, sbfControl = sbf_ctrl)
+knn_3x10cv_sbf
+```
+
+## Recursive Feature Elimination
+
+```{r}
+rfe_ctrl <- rfeControl(functions = caretFuncs, method = "repeatedcv", repeats = 3)
+train_ctrl <- trainControl(method = "repeatedcv", repeats = 3)
+svm_3x10cv_rfe <- rfe(type ~ ., data = training, method = "svmLinear", trControl = train_ctrl, rfeControl = rfe_ctrl)
+svm_3x10cv_rfe
+knn_3x10cv_rfe <- rfe(type ~ ., data = training, method = "knn", trControl = train_ctrl, rfeControl = rfe_ctrl)
+knn_3x10cv_rfe
+```
+
+## Genetic Algorithms
+
+```{r}
+gafs_ctrl <- gafsControl(functions = caretGA, method = "repeatedcv", repeats = 3)
+train_ctrl <- trainControl(method = "repeatedcv", repeats = 3)
+svm_3x10cv_gafs <- gafs(x = training[, -ncol(training)], y = training$type, method = "svmLinear", trControl = train_ctrl, gafsControl = gafs_ctrl)
+svm_3x10cv_gafs
+knn_3x10cv_gafs <- gafs(x = training[, -ncol(training)], y = training$type, method = "knn", trControl = train_ctrl, gafsControl = gafs_ctrl)
+knn_3x10cv_gafs
+```
+
+## Simuated Annealing
+
+```{r}
+safs_ctrl <- safsControl(functions = caretSA, method = "repeatedcv", repeats = 3)
+train_ctrl <- trainControl(method = "repeatedcv", repeats = 3)
+svm_3x10cv_safs <- safs(x = training[, -ncol(training)], y = training$type, method = "svmLinear", trControl = train_ctrl, safsControl = safs_ctrl)
+svm_3x10cv_safs
+knn_3x10cv_safs <- safs(x = training[, -ncol(training)], y = training$type, method = "knn", trControl = train_ctrl, safsControl = safs_ctrl)
+knn_3x10cv_safs
+```
+
+# Feature Extraction
+
+## Principal Component Analysis
+
+```{r}
+pca_res <- prcomp(training[, -ncol(training)])
+var_explained <- pca_res$sdev^2 / sum(pca_res$sdev^2)
+var_explained[1:5]
+plot(var_explained)
+```
+
+```{r}
+library(tidyverse)
+pca_res$x %>%
+    as.data.frame() %>%
+    ggplot(aes(x = PC1, y = PC2)) +
+    geom_point(size = 4) +
+    theme_bw(base_size = 32) +
+    labs(
+        x = paste0("PC1: ", round(var_explained[1] * 100, 1), "%"),
+        y = paste0("PC2: ", round(var_explained[2] * 100, 1), "%")
+    ) +
+    theme(legend.position = "top")
+```
+
+
 
 # Bibliography
 
