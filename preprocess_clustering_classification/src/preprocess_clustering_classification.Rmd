@@ -1,5 +1,6 @@
 ---
 title: 'Preprocessing, clustering and classification in R'
+author: 'Julen Etxaniz'
 output:
   html_notebook: 
     toc: yes
@@ -11,7 +12,7 @@ output:
 
 Twitter provides us with vast amounts of user-generated language data, which is a dream for anyone wanting to conduct textual analysis. The `twitteR` library provides access to Twitter data. Twitter marks its use as the ‘official’ way to download its tweets. An attractive and ‘easy-to-use’ alternative to Twitter’s ‘official rules’ is based on the use of the `rtweet` package. The [following link](https://github.com/ropensci/rtweet) seems to be a more updated package. This [set of slides](https://mkearney.github.io/nicar_tworkshop/) offers an easy-to-follow tutorial, showing the pipeline that you need.
 
-Twitter’s link to create Twitter applications is https://developer.twitter.com/en/apps. You need to be logged in to Twitter to create a new app. This will provide you a set of 5 items related to the application called `app` `consumerKey`, `consumerSecret`, `accessToken` and `accessSecret`. Both `accessToken` and `accessSecret` need to be activated after receiving the `consumerKey` and `consumerSecret`. Five parameters need to be used in the final authentification function call, `create_token()`.
+Twitter’s link to create Twitter applications is https://developer.twitter.com/en/apps. You need to be logged in to Twitter to create a new app. This will provide you a set of 5 items related to the application called `app`, `consumerKey`, `consumerSecret`, `accessToken` and `accessSecret`. Both `accessToken` and `accessSecret` need to be activated after receiving the `consumerKey` and `consumerSecret`. Five parameters need to be used in the final authentification function call, `create_token()`.
 
 ```
 token <- create_token(
@@ -35,7 +36,7 @@ clashroyale_tweets <- get_timeline("clashroyale", n = n)
 clashofclans_tweets <- get_timeline("clashofclans", n = n)
 ```
 
-We can see the first 5 tweets of each dataset. Apart from the text, many other data is return by the previous function. In total, there are 90 columns, but we will only use a few of them. The most important one is the `text` column. We will use some other features such as the date for visualization.
+In the first 5 tweets of each dataset we can see that the tweets don't only have words. There are also links and emotes for example. In the next section we will have to decide what we want to do with those words. Apart from the text, many other data is return by the previous function. In total, there are 90 columns, but we will only use a few of them. The most important one is the `text` column. We will use some other features such as the date for visualization.
 
 ```{r}
 head(clashroyale_tweets, n = 5L)
@@ -190,31 +191,41 @@ ggplot(clashofclans_data, aes(ymax = ymax, ymin = ymin, xmax = 4, xmin = 3, fill
 
 ## Initial Wordclouds
 
-Before starting learning the exposed machine learning models, let’s build a wordcloud with the following package [3]. Its `wordcloud()` command needs the list of words and their frequencies as parameters. As the words appear in columns in the document-term matrix, the `colSums` command is used to calculate the word frequencies. In order to complete the needed calculations, note that the term-document matrix needs to be transformed (casted) to a matrix form with the `as.matrix` cast-operator.
+Before starting learning the exposed machine learning models, let’s build a wordcloud with the following package [3]. Its `wordcloud()` command needs the list of words and their frequencies as parameters. As the words appear in columns in the document-term matrix, the `colSums` command is used to calculate the word frequencies. In order to complete the needed calculations, note that the term-document matrix needs to be transformed (casted) to a matrix form with the `as.matrix` cast-operator. This initial document-term matrix is very sparse, it contains 2000 documents and 7854 terms.
+
+We can see that the generated wordclouds are not very informative. The reason for this is that the most common words are english stop words. These words are very common, but d't have any meaning. That's why we should remove them from our corpus.
+
+```{r}
+corpus_dtm_init <- DocumentTermMatrix(corpus)
+corpus_dtm_init
+```
 
 ```{r}
 library(wordcloud)
-corpus_dtm <- DocumentTermMatrix(corpus)
-word_freqs <- sort(colSums(as.matrix(corpus_dtm)[1:n, ]), decreasing = TRUE)
+word_freqs <- sort(colSums(as.matrix(corpus_dtm_init)[1:n, ]), decreasing = TRUE)
 wordcloud(words = names(word_freqs), freq = word_freqs, max.words = 100, random.order = FALSE, colors = brewer.pal(8, "Dark2"))
 ```
 
 ```{r}
-word_freqs <- sort(colSums(as.matrix(corpus_dtm)[(n + 1):(n + n), ]), decreasing = TRUE)
+word_freqs <- sort(colSums(as.matrix(corpus_dtm_init)[(n + 1):(n + n), ]), decreasing = TRUE)
 wordcloud(words = names(word_freqs), freq = word_freqs, max.words = 100, random.order = FALSE, colors = brewer.pal(8, "Dark2"))
 ```
 
 ## Better Wordclouds
 
+To make a better wordcloud, we can pass the text directly. A corpus will be generated and stop words will be removed automatically. However, this time emotes are kept, and we can see that some of them are quite common. We can see that the following wordclouds are much more informative. We can already see some differences and similarities between the corpora.
+
 ```{r}
 wordcloud(clashroyale_tweets$text, max.words = 50, scale = c(3.5, 0.25), random.order = FALSE, colors = brewer.pal(8, "Dark2"))
 ```
 
 ```{r}
-wordcloud(clashroyale_tweets$text, max.words = 50, scale = c(3.5, 0.25), random.order = FALSE, colors = brewer.pal(8, "Dark2"))
+wordcloud(clashofclans_tweets$text, max.words = 50, scale = c(3.5, 0.25), random.order = FALSE, colors = brewer.pal(8, "Dark2"))
 ```
 
 ## Hashtag Worldclouds
+
+Finally, we can create another wordcloud that only contains the hashtags. We can see that hashtags are not very common, but they are different between the two corpora. We will have to decide if we want to keep or remove them in the next section.
 
 ```{r}
 clashroyale_tweets$hashtags <- as.character(clashroyale_tweets$hashtags)
@@ -230,9 +241,13 @@ wordcloud(clashofclans_tweets$hashtags, min.freq = 1, scale = c(3.5, .5), max.wo
 
 # Preprocessing
 
+As we have said before, some preprocessing is needed so that we get better results when classifying the documents. First, we will apply some transformations such as removing stop words to the text. Then, we will remove sparse words and outlier documents from the corpus. Finally, we will display the final wordclouds so that we can compare them with the initial ones.
+
 ## Apply Transformations
 
-Transformations operators to the corpus are applied via `tm_map` function, which applies (maps) a function to all elements of the corpus. As the same transformations will be applied to both “science” and “religion” newsgroups, both corpus are merged using base function `c()`: this `c()` operator concatenates objects. This operation raises a collection of 968 documents. Function tm map applies transformations to corpus objects. The list of available transformations can be obtained consulting the help of ?getTransformations. Function content transformer is used to apply customized transformations. We apply several transformations. As NLP practitioner: consult the help and parameters of each transformation’s functions, of course, use them in a different and richer way then me.
+Transformations operators to the corpus are applied via `tm_map` function, which applies (maps) a function to all elements of the corpus. The transformations will be applied to the whole corpus, that constains documents of both classes. Apart from the transformations that are available in the `tm` package, some custom transformations are also applied with the function `content_transformer`.
+
+First, some elements are removed from the corpus: numbers, punctuation, urls, mentions, hashtags, newlines and emojis. Then, all the words are converted to lowercase. Next, the previously mentioned english stopwords are removed. After, multiple whitespace characters are collapsed to a single one. Finally, all the words are stemmed to reduce the number of words. We can print the first 5 tweets of each corpus to see the difference with the initial ones.
 
 ```{r}
 remove_urls <- function(text) {
@@ -287,20 +302,20 @@ for (i in (n + 1):(n + 6)) {
 }
 ```
 
-## Create Document-Term Matrix
+## Remove Sparse Terms
 
-After corpus set transformation, a common approach in text mining is to **create a document-term matrix** from a corpus. Its transpose operator creates a term-document matrix. This document-term matrix is the starting point to apply machine-learning modelization techniques such as classification, clustering, etc. Different operations can be applied over this matrix. We can obtain the terms that occur at least, let say, 15 times; or consult the **terms that associate** with at least, for example, by a 0.7 correlation degree with the term “young”.
+After corpus set transformation, a common approach in text mining is to **create a document-term matrix** from a corpus. This document-term matrix is the starting point to apply machine-learning modelization techniques such as classification and clustering. Different operations can be applied over this matrix. We can obtain the terms that occur at least 50 times. We can also consult the **terms that associate** with at least by a 0.3 correlation degree with the term "mainten". We can see that the correlated words make sense: "short maintencance break soon", "server upkeep".
 
 ```{r}
 corpus_dtm <- DocumentTermMatrix(corpus_trans)
-dim(corpus_dtm)
-findFreqTerms(corpus_dtm, 15)
-findAssocs(corpus_dtm, term = "clan", corlimit = 0.7)
+corpus_dtm
+findFreqTerms(corpus_dtm, 50)
+findAssocs(corpus_dtm, term = "mainten", corlimit = 0.3)
 ```
 
-## Remove Sparse Terms
+We have removed nearly 4000 words from the initiaal document-term matrix. However, it has still a huge degree of sparsity: a low amount of non-zero elements. Thus, one of the most important operations is to remove sparse terms, terms occurring in very few documents. The `sparse` parameter in the `removeSparseTerms` function refers to the maximum sparseness allowed: the smaller its proportion, fewer terms will be retained. A trial and error approach will finally return a proper number of terms. This matrix will be the starting point for building further machine learning models.
 
-After all, it is easy no note the huge degree of sparsity of this matrix: a low amount of non-zero elements. Thus, one of the most important operations is to remove sparse terms, i.e., terms occurring in very few documents. The `sparse` parameter in the `removeSparseTerms` function refers to the maximum sparseness allowed: the smaller its proportion, fewer terms (but more common) will be retained. A “trial and error” approach will finally return a proper number of terms. This matrix will be the starting point for building further machine learning models (in the next tutorial).
+After trying multiple values, we decide to keep terms with a maximum sparseness of `0.99`. This seems to be very high, but it reduces the numbers of terms drastically. In fact, selecting lower values of sparseness the number of terms is too low.
 
 ```{r}
 corpus_dtm_95 <- removeSparseTerms(corpus_dtm, sparse = 0.95)
@@ -324,24 +339,11 @@ barplot(as.matrix(corpus_dtm_99),
 )
 ```
 
-## Final Worldclouds
+## Outlier Detection
 
+Outlier detection can be used to detect and remove outlier documents from the corpus. We test the Isolation Forest method. I decided not to remove any document to simplify the next steps.
 
-
-```{r}
-# calculate the frequency of words and sort in descending order.
-word_freqs <- sort(colSums(as.matrix(corpus_dtm_99)[1:n, ]), decreasing = TRUE)
-wordcloud(words = names(word_freqs), freq = word_freqs, max.words = 50, scale = c(3.5, 0.25), random.order = FALSE, colors = brewer.pal(8, "Dark2"))
-```
-
-```{r}
-word_freqs <- sort(colSums(as.matrix(corpus_dtm_99)[(n + 1):(n + n), ]), decreasing = TRUE)
-wordcloud(words = names(word_freqs), freq = word_freqs, max.words = 50, scale = c(3.5, 0.25), random.order = FALSE, colors = brewer.pal(8, "Dark2"))
-```
-
-# Outlier Detection
-
-## Isolation Forest
+Isolation Forest constructs a tree per document. It tries to isolate the sample from the rest. As outliers are easy to isolate, their isolation score is high. We have to plot the outlierness and decide a threshold.
 
 ![Isolation Forest](../images/isolation_forest.png)
 
@@ -366,33 +368,29 @@ plot(density(p$anomaly_score), main = "Anomaly Score Density")
 which(p$anomaly_score > 0.62)
 ```
 
-## Local Outlier Factor (LOF)
+## Final Worldclouds
 
-![Local Outlier Factor (LOF)](../images/local_outlier_factor.png)
+Finally, the wordclouds of the reduced document-term matrix are plotted. We can see the difference with the initial wordcloud. The terms of each wordcloud are significantly different
 
 ```{r}
-library(DDoutlier)
-# calculate "outlierness" score, by LOF
-outlierness <- LOF(dataset = corpus_df_99, k = 5)
+# calculate the frequency of words and sort in descending order.
+word_freqs <- sort(colSums(as.matrix(corpus_dtm_99)[1:n, ]), decreasing = TRUE)
+wordcloud(words = names(word_freqs), freq = word_freqs, max.words = 50, scale = c(3.5, 0.25), random.order = FALSE, colors = brewer.pal(8, "Dark2"))
+```
 
-# assign an index to outlierness values
-names(outlierness) <- seq_len(nrow(corpus_df_99))
-
-# plot histogram
-hist(outlierness)
-
-# Based on the plot, decide the cut-off point
-unique(which(outlierness > 3.5))
+```{r}
+word_freqs <- sort(colSums(as.matrix(corpus_dtm_99)[(n + 1):(n + n), ]), decreasing = TRUE)
+wordcloud(words = names(word_freqs), freq = word_freqs, max.words = 50, scale = c(3.5, 0.25), random.order = FALSE, colors = brewer.pal(8, "Dark2"))
 ```
 
 # Clustering
 
-## Clustering of words with similar patterns of occurrences across documents
+## Clustering Words
 
-We try to find clusters of words with hierarchical clustering, a popular clustering techniques which builds a dendogram to iteratively group pairs of similar objects. To do so, a matrix which has removed sparse is needed: the starting point is the 0.8 sparseness-value matrix. After the application of the matrix-casting operator, number of occurrences are scaled: first column (term) mean is substracted, and then this is divided by its standard deviation. It is needed to calculate the distance between pairs of objects (terms): these are saved in `dist_matrix`. The `dist` operator performs this calculation between pairs of rows of the provided matrix. As terms appear in the columns of the document-term matrix (`corpus_dtm_80`), it is needed to be transposed by means of the `t` operator. The clustering-dendogram is built with the `hclust` operator. It needs as input the calculated distance matrix between pairs of terms and a criteria to decide which pair of clusters to be consecutively joined in the bottom-up dendogram. In this case, the “complete” criteria takes into account the maximum distance between any pair of objects (terms) of both clusters to be merged. Heigth in the dendogram denotes the *distance* between a merged pair of clusters.
+We try to find clusters of words with hierarchical clustering, a popular clustering techniques which builds a dendogram to iteratively group pairs of similar objects. To do so, a matrix which has removed sparse is needed: the starting point is the 0.8 sparseness-value matrix. After the application of the matrix-casting operator, number of occurrences are scaled: first column (term) mean is substracted, and then this is divided by its standard deviation. It is needed to calculate the distance between pairs of objects (terms): these are saved in `dist_matrix`. The `dist` operator performs this calculation between pairs of rows of the provided matrix. As terms appear in the columns of the document-term matrix (`corpus_dtm_97`), it is needed to be transposed by means of the `t` operator. The clustering-dendogram is built with the `hclust` operator. It needs as input the calculated distance matrix between pairs of terms and a criteria to decide which pair of clusters to be consecutively joined in the bottom-up dendogram. In this case, the “complete” criteria takes into account the maximum distance between any pair of objects (terms) of both clusters to be merged. Heigth in the dendogram denotes the *distance* between a merged pair of clusters.
 
 ```{r}
-dist_matrix <- dist(t(scale(as.matrix(corpus_dtm_95))))
+dist_matrix <- dist(t(scale(as.matrix(corpus_dtm_97))))
 term_clustering <- hclust(dist_matrix, method = "complete")
 plot(term_clustering)
 ```
@@ -400,15 +398,15 @@ plot(term_clustering)
 Instead of hierarchical clustering and following a similar set of functions, the `fpc` package allows to construct a `k-means` clustering.
 
 
-## Clustering of documents
+## Clustering Documents
 
 Another type of popular NLP machine-learning analysis is to construct clusters of similar documents based on the frequencies of word occurrences.
 
 ```{r}
-dist_matrix <- dist(scale(as.matrix(corpus_dtm_95)))
+dist_matrix <- dist(scale(as.matrix(corpus_dtm_99)[(n - 15):(n + 15), ]))
 groups <- hclust(dist_matrix, method = "ward.D")
 plot(groups, cex = 0.9, hang = -1)
-rect.hclust(groups, k = 5)
+rect.hclust(groups, k = 2)
 ```
 
 # Classification
@@ -417,11 +415,11 @@ The `caret` [4, 5] package is the reference tool for building supervised classif
 
 Very useful: the cheatsheet of caret: https://github.com/CABAH/learningRresources/blob/main/cheatsheets/caret.pdf. Its principal functions illustrated in a single page.
 
-Our objective is to learn a classifier-model which, based on terms occurrences, predicts the type-topic (“science-electronics” or “religion”) of future documents (post-new, in the case of newsgroups). We have a two-class problem.
+Our objective is to learn a classifier-model which, based on terms occurrences, predicts the type of future documents. We have a two-class problem.
 
-## Concatenate the annotation column: type of training documents
+## Create DataFrame
 
-The 0.9 sparseness value document-term matrix is our starting point. We first need to append the class (document type) vector as the last column of the matrix: the first 591 documents cover the “science-electronics” newgroup.
+The 0.99 sparseness value document-term matrix is our starting point. We first need to append the class vector as the last column of the matrix. There are 1000 documents of each class.
 
 ```{r}
 dim(corpus_dtm_99)
@@ -430,7 +428,7 @@ corpus_dtm_99 <- cbind(corpus_dtm_99, type) # append
 dim(corpus_dtm_99) # consult the updated number of columns
 ```
 
-This new matrix is the starting point for any software specialized on supervised classification. However, it is needed to concatenate “matrix” and “data.frame” casting operations. The name of the last column is updated.
+This new matrix is the starting point for any software specialized on supervised classification. However, it is needed to concatenate “matrix” and “data.frame” casting operations. The name of the last column is updated. All the values are converted to numeric and the last column is converted to factor.
 
 ```{r}
 corpus_df_99 <- as.data.frame(as.matrix(corpus_dtm_99))
@@ -441,11 +439,9 @@ corpus_df_99[is.na(corpus_df_99)] <- 0
 corpus_df_99$type <- as.factor(corpus_df_99$type)
 ```
 
-The different columns of an object can be accessed by typing the tab after the object name and the $ symbol.
+## Create Data Partition
 
-## Create a "Train-Test" partition for classifier validation
-
-Before learning a classification model it is needed to define the subsets of samples (documents) to train and test the it. The `createDataPartition` produces a train-test partition of our corpus of 968 documents. This will be maintained during the whole pipeline of analysis. Test samples won’t be used for any modeling decision: only to predict their class and create a confusion matrix. Consult the parameters of `createDataPartition`, as well as other two functions with similar purposes, `createFolds` and `createResample`. A list of randomly sampled numbers (object `in_train`), as index numbers, is used to partition the whole corpus in two `R` objects.
+Before learning a classification model it is needed to define the subsets of samples (documents) to train and test the it. The `createDataPartition` produces a train-test partition of our corpus. This will be maintained during the whole pipeline of analysis. Test samples won’t be used for any modeling decision: only to predict their class and create a confusion matrix. A list of randomly sampled numbers (`in_train`) is used to partition the whole corpus in two `R` objects. 75% of the samples are used for training and the remaining 25% is used for testing.
 
 ```{r}
 library(caret)
@@ -457,7 +453,19 @@ testing <- corpus_df_99[-in_train, ]
 nrow(training)
 ```
 
-## Selection of supervised classification algorithms 
+Similarly, `createResample` can be used to make simple bootstrap samples. This creates resamples of the size of the corpus with repeated documents. `createFolds` can be used to generate balanced cross-validation groupings from a set of data.
+
+```{r}
+resamples <- createResample(y = corpus_df_99$type)
+str(resamples)
+```
+
+```{r}
+folds <- createFolds(y = corpus_df_99$type)
+str(folds)
+```
+
+## Select Classifiers
 
 We now can start training and testing different supervised classification models. train function implements the building process. Check its parameters: among them, we highlight the following:
 
@@ -473,19 +481,15 @@ Take into account the following facts about the model-training step:
 
 * the expression `type ~` is quite popular in R to denote the specific variable to be predicted, followed by the set of predictors. A point indicates that the rest of variables are used as predictors.
 
-* together with the estimation of the percentage recognition (accuracy), the value of the *Kappa statistic* is shown. It is a popular score in NLP studies. Its definition is not trivial in the context of supervised classification. Roughly, this score compares the “observed” accuracy of the learned classifier with respect to a random classifier: measuring the score difference between our classifier and a random classifier. A larger definition of this metric can be found in http://stats.stackexchange.com/questions/82162/kappa-statistic-in-plain-english.
 
-* while the linear SVM classifier does not have parameters, K-NN has the “number of neighbours” (K) key parameter. By default, changing the value of the parameter, `caret` evaluates 3 models (`tuneLength` equal to 3). The `tuneLength` option of the `train` function fixes the number of values of each parameter to be checked. For example, if the classifier has 2 parameters and the `tuneLength` parameter is not changed, 3 x 3 = 9 models are evaluated. The `tuneGrid` option offers the possibility to select among a set of values to be tuned-tested.
 
 * `caret` supports more than 150 supervised classification and regression algorithms. A small portion of them are learned by means of the software of the package itself. The majority of the algorithms are learned by other `R` packages which are conveniently accessed by `caret`.
 
-## Internal performance estimation in the training partition
+Accuracy and Kappa are the default metrics used to evaluate algorithms on binary and multi-class classification datasets in caret. As we have to do binary classification, these metrics are adequate. Our classes are completely balanced, and that makes analysing the metrics easier.
 
-```{r}
-library("doParallel")
-cl <- makeCluster(parallel::detectCores() - 1)
-registerDoParallel(cl)
-```
+Accuracy is the percentage of correctly classifies instances out of all instances. It is more useful on a binary classification than multi-class classification problems because it can be less clear exactly how the accuracy breaks down across those classes. This could be seen with a confusion matrix.
+
+Kappa is similar to accuracy, but it is normalized at the baseline of random chance on your dataset. It is a more useful measure to use on problems that have an imbalance in the classes. For example, in a 70-30 split for classes 0 and 1 and you can achieve 70% accuracy by predicting all instances are for class 0.
 
 ```{r}
 # fixing the performance estimation procedure
@@ -496,50 +500,40 @@ lda_3x10cv <- train(type ~ ., data = training, method = "lda", trControl = train
 lda_3x10cv
 ```
 
-## Tuning of the parameters of the selected classifiers
+## Tuning Parameters
 
-The training process can still be enriched with extra parameters in the `trainControl` function: `summaryFunction` controls the type of evaluation metrics. In binary classification problems (e.g. “science” versus “religion”) the `twoClassSummary` option displays [area under the ROC curve](http://en.wikipedia.org/wiki/Receiver_operating_characteristic), sensitity-recall and specificity metrics. To do so, it is also needed to activate the `classProbs` option which saves the probability that the classifier assigns to each sample belonging to each class-value.
+While the linear LDA classifier does not have parameters, LR has the `nIter` key parameter. By default, without changing the value of the parameter, `caret` evaluates 3 models (`tuneLength` equal to 3). This can be seen in the precious section. The `tuneLength` option of the `train` function fixes the number of values of each parameter to be checked. For example, if the classifier has 2 parameters and the `tuneLength` parameter is not changed, 3 x 3 = 9 models are evaluated. The `tuneGrid` option offers the possibility to select among a set of values to be tuned-tested.
 
 ```{r}
 train_ctrl <- trainControl(
     method = "repeatedcv", repeats = 3
 )
-lr_tune_3x10cv <- train(type ~ .,
-    data = training, method = "LogitBoost", trControl = train_ctrl, tuneLength = 10
+lr_tunel_3x10cv <- train(type ~ .,
+    data = training, method = "LogitBoost", trControl = train_ctrl, tuneLength = 20
 )
-lr_tune_3x10cv
-plot(lr_tune_3x10cv)
-```
-
-## Predict the class-type of future unseen-unlabeled texts
-
-In order to predict the class value of unseen documents of the test partition caret uses the classifier which shows the best accuracy estimation of their parameters. Function predict implements this functionality. Consult its parameters. The `type` parameter, by means of its `probs` value, outputs the probability of test each sample belonging to each class (“a-posteriori” probability). On the other hand, the `raw` value outputs the class value with the largest probability. By means of the `raw` option the confusion matrix can be calculated: this crosses, for each test sample, predicted with real class values.
-
-```{r}
-lr_classes <- predict(lr_3x10cv, newdata = testing, type = "raw")
-confusionMatrix(data = lr_classes, testing$type)
+lr_tunel_3x10cv
+plot(lr_tunel_3x10cv)
 ```
 
 ```{r}
-lda_classes <- predict(lda_3x10cv, newdata = testing, type = "raw")
-confusionMatrix(data = lda_classes, testing$type)
+train_ctrl <- trainControl(
+    method = "repeatedcv", repeats = 3
+)
+tune_grid <- expand.grid(
+  nIter = seq(100, 120, 2)
+)
+lr_tuneg_3x10cv <- train(type ~ .,
+    data = training, method = "LogitBoost", trControl = train_ctrl, tuneGrid = tune_grid
+)
+lr_tuneg_3x10cv
+plot(lr_tuneg_3x10cv)
 ```
 
-## Statistical comparison between two classifiers by means of t-test
+## Train Control
 
-Can a statistical comparison be performed between the 3x10cv validation results of K-NN and SVM? Note than in our case, due to the 3 repetitions of the 10-fold cross-validation process, there are 30 resampling results for each classifier. First, results of both classifiers are crossed using the `resamples` function. As the `set.seed` did not change, the same paired cross-validation subsets of samples were used for both classifiers. This forces to use a paired t-test to calculate the significance of the differences between both classifiers. A simple plot is drawn, showing the accuracy differences between both models for each of the 30 cross-validation folds: note that rf has a better accuracy than lda for all the cross-validation fold results (Figure 2).
+The training process can still be enriched with extra parameters in the `trainControl` function: `summaryFunction` controls the type of evaluation metrics. In binary classification problems (e.g. “science” versus “religion”) the `twoClassSummary` option displays [area under the ROC curve](http://en.wikipedia.org/wiki/Receiver_operating_characteristic), sensitity-recall and specificity metrics. To do so, it is also needed to activate the `classProbs` option which saves the probability that the classifier assigns to each sample belonging to each class-value.
 
-Using the `diff` function over the `resamps` object which saves the “crossing” of both classifiers, we can show a rich output of the performed comparison: each number matters. The output shows, for each metric (area under the ROC curve, sensitivity, specificity), the difference of the mean (positive or negative, following the order in the `resamples` function) between both classifiers. The p-value of the associated t-test is also shown.
-
-The interpretation of the p-value has the key. It is related with the risk of erroneously discarding the nullhypothesis of similarity between compared classifiers, when there is no real difference. Roughly speaking, it can also be interpreted as the degree of similarity between both classifiers. A p-value smaller than 0.05 (or 0.1, depending on your interpretation and threshold) alerts about statistically significant differences between both classifiers, https://en.wikipedia.org/wiki/Statistical_significance. That is, when the risk of erroneusly discarding the hypothesis of similarity between both classifiers is low, we assume that there is a statistically significant difference between classifiers.
-
-```{r}
-resamps <- resamples(list(lda = lda_3x10cv, lr = lr_3x10cv))
-summary(resamps)
-xyplot(resamps, what = "BlandAltman")
-diffs <- diff(resamps)
-summary(diffs)
-```
+## Unbalanced Corpus
 
 # Feature Selection
 
@@ -554,22 +548,6 @@ lda_sbf_3x10cv <- sbf(type ~ ., data = training, method = "lda", trControl = tra
 lda_sbf_3x10cv
 ```
 
-```{r}
-resamps <- resamples(list(lr = lr_3x10cv, lr_sbf = lr_sbf_3x10cv))
-summary(resamps)
-xyplot(resamps, what = "BlandAltman")
-diffs <- diff(resamps)
-summary(diffs)
-```
-
-```{r}
-resamps <- resamples(list(lda = lda_3x10cv, lda_sbf = lda_sbf_3x10cv))
-summary(resamps)
-xyplot(resamps, what = "BlandAltman")
-diffs <- diff(resamps)
-summary(diffs)
-```
-
 ## Recursive Feature Elimination
 
 ```{r}
@@ -579,49 +557,6 @@ lr_rfe_3x10cv <- rfe(type ~ ., data = training, method = "LogitBoost", trControl
 lr_rfe_3x10cv
 lda_rfe_3x10cv <- rfe(type ~ ., data = training, method = "lda", trControl = train_ctrl, rfeControl = rfe_ctrl)
 lda_rfe_3x10cv
-```
-
-```{r}
-resamps <- resamples(list(lr = lr_3x10cv, lr_rfe = lr_rfe_3x10cv))
-summary(resamps)
-xyplot(resamps, what = "BlandAltman")
-diffs <- diff(resamps)
-summary(diffs)
-```
-
-```{r}
-resamps <- resamples(list(lda = lda_3x10cv, lda_rfe = lda_rfe_3x10cv))
-summary(resamps)
-xyplot(resamps, what = "BlandAltman")
-diffs <- diff(resamps)
-summary(diffs)
-```
-
-## Genetic Algorithms
-
-```{r}
-gafs_ctrl <- gafsControl(functions = caretGA, method = "repeatedcv", repeats = 3)
-train_ctrl <- trainControl(method = "repeatedcv", repeats = 3)
-lr_gafs_3x10cv <- gafs(x = training[, -ncol(training)], y = training$type, method = "LogitBoost", trControl = train_ctrl, gafsControl = gafs_ctrl)
-lr_gafs_3x10cv
-lda_gafs_3x10cv <- gafs(x = training[, -ncol(training)], y = training$type, method = "lda", trControl = train_ctrl, gafsControl = gafs_ctrl)
-lda_gafs_3x10cv
-```
-
-```{r}
-resamps <- resamples(list(lr = lr_3x10cv, lr_gafs = lr_gafs_3x10cv))
-summary(resamps)
-xyplot(resamps, what = "BlandAltman")
-diffs <- diff(resamps)
-summary(diffs)
-```
-
-```{r}
-resamps <- resamples(list(lda = lda_3x10cv, lda_gafs = lda_gafs_3x10cv))
-summary(resamps)
-xyplot(resamps, what = "BlandAltman")
-diffs <- diff(resamps)
-summary(diffs)
 ```
 
 ## Simuated Annealing
@@ -635,25 +570,9 @@ lda_safs_3x10cv <- safs(x = training[, -ncol(training)], y = training$type, meth
 lda_safs_3x10cv
 ```
 
-```{r}
-resamps <- resamples(list(lr = lr_3x10cv, lr_safs = lr_safs_3x10cv))
-summary(resamps)
-xyplot(resamps, what = "BlandAltman")
-diffs <- diff(resamps)
-summary(diffs)
-```
-
-```{r}
-resamps <- resamples(list(lda = lda_3x10cv, lda_safs = lda_safs_3x10cv))
-summary(resamps)
-xyplot(resamps, what = "BlandAltman")
-diffs <- diff(resamps)
-summary(diffs)
-```
-
 # Feature Extraction
 
-## Principal Component Analysis
+## Principal Component Analysis (PCA)
 
 ```{r}
 pca_res <- prcomp(scale(training[, -ncol(training)]))
@@ -685,18 +604,147 @@ lda_pca_3x10cv <- train(type ~ ., data = training, method = "lda", preProcess = 
 lda_pca_3x10cv
 ```
 
+# Testing
+
+In order to predict the class value of unseen documents of the test partition caret uses the classifier which shows the best accuracy estimation of their parameters. Function predict implements this functionality. Consult its parameters. The `type` parameter, by means of its `probs` value, outputs the probability of test each sample belonging to each class (“a-posteriori” probability). On the other hand, the `raw` value outputs the class value with the largest probability. By means of the `raw` option the confusion matrix can be calculated: this crosses, for each test sample, predicted with real class values.
+
+## Boosted Logistic Regression
+
 ```{r}
-resamps <- resamples(list(lr = lr_3x10cv, lr_pca = lr_pca_3x10cv))
-summary(resamps)
-xyplot(resamps, what = "BlandAltman")
-diffs <- diff(resamps)
-summary(diffs)
+lr_pred <- predict(lr_3x10cv, newdata = testing, type = "raw")
+confusionMatrix(data = lr_pred, testing$type)
 ```
 
 ```{r}
-resamps <- resamples(list(lda = lda_3x10cv, lda_pca = lda_pca_3x10cv))
+lr_sbf_pred <- predict(lr_sbf_3x10cv, newdata = testing, type = "raw")
+confusionMatrix(data = lr_sbf_pred$pred, testing$type)
+```
+
+```{r}
+lr_rfe_pred <- predict(lr_rfe_3x10cv, newdata = testing)
+confusionMatrix(data = lr_rfe_pred$pred, testing$type)
+```
+
+```{r}
+lr_safs_pred <- predict(lr_safs_3x10cv, newdata = testing, type = "raw")
+confusionMatrix(data = lr_safs_pred, testing$type)
+```
+
+```{r}
+lr_pca_pred <- predict(lr_pca_3x10cv, newdata = testing, type = "raw")
+confusionMatrix(data = lr_pca_pred, testing$type)
+```
+
+## Linear Disciminant Analysis
+
+```{r}
+lda_pred <- predict(lda_3x10cv, newdata = testing, type = "raw")
+confusionMatrix(data = lda_pred, testing$type)
+```
+
+```{r}
+lda_sbf_pred <- predict(lda_sbf_3x10cv, newdata = testing, type = "raw")
+confusionMatrix(data = lda_sbf_pred$pred, testing$type)
+```
+
+```{r}
+lda_rfe_pred <- predict(lda_rfe_3x10cv, newdata = testing)
+confusionMatrix(data = lda_rfe_pred$pred, testing$type)
+```
+
+```{r}
+lda_safs_pred <- predict(lda_safs_3x10cv, newdata = testing, type = "raw")
+confusionMatrix(data = lda_safs_pred, testing$type)
+```
+
+```{r}
+lda_pca_pred <- predict(lda_pca_3x10cv, newdata = testing, type = "raw")
+confusionMatrix(data = lda_pca_pred, testing$type)
+```
+
+# Comparison
+
+## Summary Tables
+
+This is the easiest comparison that you can do, simply call the summary function() and pass it the resamples result. It will create a table with one algorithm for each row and evaluation metrics for each column.
+
+```{r}
+resamps <- resamples(list(lr = lr_3x10cv, lr_sbf = lr_sbf_3x10cv, lr_rfe = lr_rfe_3x10cv, lr_safs = lr_safs_3x10cv, lr_pca = lr_pca_3x10cv, lda = lda_3x10cv, lda_sbf = lda_sbf_3x10cv, lda_rfe = lda_rfe_3x10cv, lda_safs = lda_safs_3x10cv, lda_pca = lda_pca_3x10cv))
 summary(resamps)
-xyplot(resamps, what = "BlandAltman")
+```
+
+## Box and Whisker Plots
+
+This is a useful way to look at the spread of the estimated accuracies for different methods and how they relate. Note that the boxes are ordered from highest to lowest mean accuracy. They areuseful to look at the mean values (dots) and the boxes (middle 50% of results).
+
+```{r}
+scales <- list(x=list(relation="free"), y=list(relation="free"))
+bwplot(resamps, scales=scales)
+```
+
+## Density Plots
+
+You can show the distribution of model accuracy as density plots. This is a useful way to evaluate the overlap in the estimated behavior of algorithms. They are useful to look at the differences in the peaks as well as the spread or base of the distributions.
+
+```{r}
+scales <- list(x=list(relation="free"), y=list(relation="free"))
+densityplot(resamps, scales=scales, pch = "|")
+```
+
+## Dot Plots
+
+These are useful plots as the show both the mean estimated accuracy as well as the 95% confidence interval. They are useful to compare the means and the overlap of the spreads between algorithms.
+
+```{r}
+scales <- list(x=list(relation="free"), y=list(relation="free"))
+dotplot(resamps, scales=scales)
+```
+
+## Scatterplot Matrix
+
+This creates a scatterplot matrix of all fold-trial results for an algorithm compared to the same fold-trial results for all other algorithms. These are useful to compair pairs of algorithms.
+
+```{r fig.height=10, fig.width=10}
+splom(resamps)
+```
+
+## Pairwise xyPlots
+
+We can zoom in on one pair-wise comparison of the accuracy for two algorithms with an xyplot. For example, we can compare the two main algorithms.
+
+```{r}
+xyplot(resamps, what = "BlandAltman", models = c("lr", "lda"))
+```
+
+Another useful comparison is to check the effect of feature selection and extraction. For the Logistic Regression algorithm, Univariate Filters and Recursive Feature Elimination improve the accuracy. However, Simulated Annealing and Principal Component Analysis get worse results.
+
+```{r}
+xyplot(resamps, what = "BlandAltman", models = c("lr", "lr_sbf"))
+```
+
+```{r}
+xyplot(resamps, what = "BlandAltman", models = c("lr", "lr_rfe"))
+```
+
+```{r}
+xyplot(resamps, what = "BlandAltman", models = c("lr", "lr_safs"))
+```
+
+```{r}
+xyplot(resamps, what = "BlandAltman", models = c("lr", "lr_pca"))
+```
+
+## Statistical Significance Tests
+
+Note than in our case, due to the 3 repetitions of the 10-fold cross-validation process, there are 30 resampling results for each classifier. First, results of all classifiers are crossed using the `resamples` function. As the `set.seed` did not change, the same paired cross-validation subsets of samples were used for both classifiers. This forces to use a paired t-test to calculate the significance of the differences between both classifiers.
+
+Using the `diff` function over the `resamps` object which saves the “crossing” of both classifiers, we can show a rich output of the performed comparison: each number matters. The output shows, for each metric (accuracy and kappa), the difference of the mean (positive or negative, following the order in the `resamples` function) between both classifiers. The p-value of the associated t-test is also shown.
+
+The interpretation of the p-value is the key point. It is related with the risk of erroneously discarding the null-hypothesis of similarity between compared classifiers, when there is no real difference. Roughly speaking, it can also be interpreted as the degree of similarity between both classifiers. A p-value smaller than 0.05 alerts about statistically significant differences between both classifiers. That is, when the risk of erroneusly discarding the hypothesis of similarity between both classifiers is low, we assume that there is a statistically significant difference between classifiers.
+
+The lower diagonal of the table shows p-values for the null hypothesis (distributions are the same). The upper diagonal of the table shows the estimated difference between the distributions. We can see that is come cases the p-value is bigger than 0.05 and therefore we can not discard the null hypothesis. In some other cases, the p-value is smaller than 0.05 so we can surely discard the null hypotsesis.
+
+```{r}
 diffs <- diff(resamps)
 summary(diffs)
 ```
