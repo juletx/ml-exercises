@@ -437,6 +437,7 @@ corpus_df_99$type <- as.factor(corpus_df_99$type)
 corpus_df_99 <- as.data.frame(sapply(corpus_df_99, as.numeric))
 corpus_df_99[is.na(corpus_df_99)] <- 0
 corpus_df_99$type <- as.factor(corpus_df_99$type)
+levels(corpus_df_99$type) <- c("clashofclans", "clashroyale")
 ```
 
 ## Create Data Partition
@@ -469,7 +470,7 @@ str(folds)
 
 We now can start training and testing different supervised classification models. train function implements the building process. Check its parameters: among them, we highlight the following:
 
-* `preProcess` parameter defines the preprocessing steps to be applied. They are popular with classic numeric variables, such as imputation of missing values, centering and scaling, etc. As it was shown in the previous tutorial, NLP datasets have their own preprocessing tools. They are not going to be applied in our dataset.
+
 
 * `trControl` parameter defines the method to estimate the error of the classifier. It is defined by means of the application of the `trainControl` function. This allows the use of different performance estimation procedures such as k-fold cross-validation, bootstrapping, etc. We apply a 10-fold cross-validation, repeated 3 times.
 
@@ -485,35 +486,80 @@ Take into account the following facts about the model-training step:
 
 * `caret` supports more than 150 supervised classification and regression algorithms. A small portion of them are learned by means of the software of the package itself. The majority of the algorithms are learned by other `R` packages which are conveniently accessed by `caret`.
 
+## Linear Discriminant Analysis
+
+![Linear Discirminant Analysis](../images/linear_discriminant_analysis.png)
+
 Accuracy and Kappa are the default metrics used to evaluate algorithms on binary and multi-class classification datasets in caret. As we have to do binary classification, these metrics are adequate. Our classes are completely balanced, and that makes analysing the metrics easier.
 
 Accuracy is the percentage of correctly classifies instances out of all instances. It is more useful on a binary classification than multi-class classification problems because it can be less clear exactly how the accuracy breaks down across those classes. This could be seen with a confusion matrix.
 
-Kappa is similar to accuracy, but it is normalized at the baseline of random chance on your dataset. It is a more useful measure to use on problems that have an imbalance in the classes. For example, in a 70-30 split for classes 0 and 1 and you can achieve 70% accuracy by predicting all instances are for class 0.
+Kappa is similar to accuracy, but it is normalized at the baseline of random chance on your dataset. It is a more useful measure to use on problems that have an imbalance in the classes. For example, in a 70-30 split for classes 0 and 1 and you can achieve 70% accuracy by predicting all instances are for class 0. As our classes are completely balanced, 50% accuracy is obtained by predicting any of the classes for all instances.
+
+The obtained accuracy is not very good, but this is expected because the problem is not an easy one. The kappa metric also reflects that our classifier is quite bad.
 
 ```{r}
 # fixing the performance estimation procedure
 train_ctrl <- trainControl(method = "repeatedcv", repeats = 3)
-lr_3x10cv <- train(type ~ ., data = training, method = "LogitBoost", trControl = train_ctrl)
-lr_3x10cv
 lda_3x10cv <- train(type ~ ., data = training, method = "lda", trControl = train_ctrl)
 lda_3x10cv
 ```
 
-## Tuning Parameters
+The training process can still be enriched with extra parameters in the `trainControl` function: `summaryFunction` controls the type of evaluation metrics. In binary classification problems the `twoClassSummary` option displays area under the ROC curve, sensitity and specificity metrics. To do so, activating the `classProbs` option is needed, which saves the probability that the classifier assigns to each sample belonging to each class-value.
 
-While the linear LDA classifier does not have parameters, LR has the `nIter` key parameter. By default, without changing the value of the parameter, `caret` evaluates 3 models (`tuneLength` equal to 3). This can be seen in the precious section. The `tuneLength` option of the `train` function fixes the number of values of each parameter to be checked. For example, if the classifier has 2 parameters and the `tuneLength` parameter is not changed, 3 x 3 = 9 models are evaluated. The `tuneGrid` option offers the possibility to select among a set of values to be tuned-tested.
+ROC metrics are only suitable for binary classification problems. The area under the ROC curve represents a models ability to discriminate between positive and negative classes. An area of 1.0 represents a model that made all predicts perfectly. An area of 0.5 represents a model as good as random.
+
+ROC can be broken down into sensitivity and specificity. A binary classification problem is really a trade-off between sensitivity and specificity. Sensitivity is the true positive rate also called the recall. It is the number instances from the positive (first) class that actually predicted correctly. Specificity is also called the true negative rate. Is the number of instances from the negative (second) class that were actually predicted correctly.
+
+Looking at this numbers, we realise that the second class is predicted correctly more times than the first one. The first class is predicted correctly 67% of the times and the second one 90% of the times. This will also be evident if we calculate a confusion matrix when testing the model.
+
+```{r}
+library(pROC)
+train_ctrl <- trainControl(method = "repeatedcv",repeats=3, classProbs=TRUE, summaryFunction=twoClassSummary)
+lda_roc_3x10cv <- train(type ~ ., data = training, method = "lda", metric="ROC", trControl = train_ctrl)
+lda_roc_3x10cv
+```
+
+## Boosted Logistic Regression
+
+![Logistic Regression](../images/logistic_regression.png)
+
+While the linear LDA classifier does not have parameters, LR has the `nIter` key parameter. This parameter indicates the number of iterations of the Logistic Regression model. By default, without changing the value of the parameter, `caret` evaluates 3 models (`tuneLength` equal to 3). The `tuneLength` option of the `train` function fixes the number of values of each parameter to be checked. For example, if the classifier has 2 parameters and the `tuneLength` parameter is not changed, 3 x 3 = 9 models are evaluated.
+
+```{r}
+train_ctrl <- trainControl(
+    method = "repeatedcv", repeats = 3
+)
+lr_3x10cv <- train(type ~ .,
+    data = training, method = "LogitBoost", trControl = train_ctrl
+)
+lr_3x10cv
+plot(lr_3x10cv)
+```
+
+If we increase the `tuneLength` to `15` we can evaluate more models, and check if the accuracy increases. We can see that the accuracy improves up to some point and then it is nearly constant. Therefore, it is not worth to increase the value of `nIter` 
 
 ```{r}
 train_ctrl <- trainControl(
     method = "repeatedcv", repeats = 3
 )
 lr_tunel_3x10cv <- train(type ~ .,
-    data = training, method = "LogitBoost", trControl = train_ctrl, tuneLength = 20
+    data = training, method = "LogitBoost", trControl = train_ctrl, tuneLength = 15
 )
 lr_tunel_3x10cv
 plot(lr_tunel_3x10cv)
 ```
+
+We can also try the ROC metric
+
+```{r}
+train_ctrl <- trainControl(method = "repeatedcv",repeats=3, classProbs=TRUE, summaryFunction=twoClassSummary)
+lr_roc_3x10cv <- train(type ~ ., data=training, method="LogitBoost", trControl=train_ctrl, metric="ROC", tuneLength=15)
+lr_roc_3x10cv
+plot(lr_roc_3x10cv)
+```
+
+The `tuneGrid` option offers the possibility to select among a set of values to be tuned-tested.
 
 ```{r}
 train_ctrl <- trainControl(
@@ -529,11 +575,57 @@ lr_tuneg_3x10cv
 plot(lr_tuneg_3x10cv)
 ```
 
-## Train Control
+# Subsampling
 
-The training process can still be enriched with extra parameters in the `trainControl` function: `summaryFunction` controls the type of evaluation metrics. In binary classification problems (e.g. “science” versus “religion”) the `twoClassSummary` option displays [area under the ROC curve](http://en.wikipedia.org/wiki/Receiver_operating_characteristic), sensitity-recall and specificity metrics. To do so, it is also needed to activate the `classProbs` option which saves the probability that the classifier assigns to each sample belonging to each class-value.
+Our initial corpus is completely balanced, it has 1000 samples of each class. However, we can create an unbalanced corpus by removing some samples. For example, we can create a corpus that has 1000 samples of one class and 200 from the other class. If class-label distributions are unbalanced in our corpus, a resampling method which will try to improve the recovery rate in the minority class.
 
-## Unbalanced Corpus
+This test will only be performed with the LR classifier. First, a normal classifier will be trained. Then multiple resampling methods will be tested and compared with the base classifier. ROC is an adequeate metric in this case. We can compare the sensitivity and specificity for each subsampling method. 
+
+We expect to have very high specificity but low sensitivity. Therefore, our aim is to increase sensistivity. Downsampling and upsampling improve the sensitivity a bit and rose method gets worse results.
+
+```{r}
+corpus_df_99_un = corpus_df_99[1:(n+n/4), ]
+in_train_un <- createDataPartition(y = corpus_df_99_un$type, p = .75, list = FALSE)
+str(in_train_un)
+training_un <- corpus_df_99[in_train_un, ]
+testing_un <- corpus_df_99[-in_train_un, ]
+```
+
+```{r}
+train_ctrl <- trainControl(method = "repeatedcv", repeats = 3, classProbs=TRUE, summaryFunction=twoClassSummary)
+lda_un_3x10cv <- train(type ~ ., data = training_un, method = "LogitBoost", metric="ROC", trControl = train_ctrl)
+lda_un_3x10cv
+```
+
+## Downsampling
+
+Randomly subset all the classes in the training set so that their class frequencies match the least prevalent class. For example, suppose that 80% of the training set samples are the first class and the remaining 20% are in the second class. Down-sampling would randomly sample the first class to be the same size as the second class (so that only 40% of the total training set is used to fit the model).
+
+```{r}
+train_ctrl <- trainControl(method = "repeatedcv", repeats = 3, classProbs=TRUE, summaryFunction=twoClassSummary, sampling="down")
+lda_down_3x10cv <- train(type ~ ., data = training_un, method = "LogitBoost", metric="ROC", trControl = train_ctrl)
+lda_down_3x10cv
+```
+
+## Upsampling
+
+Randomly sample (with replacement) the minority class to be the same size as the majority class.
+
+```{r}
+train_ctrl <- trainControl(method = "repeatedcv", repeats = 3, classProbs=TRUE, summaryFunction=twoClassSummary, sampling="up")
+lda_up_3x10cv <- train(type ~ ., data = training_un, method = "LogitBoost", metric="ROC", trControl = train_ctrl)
+lda_up_3x10cv
+```
+
+## Hybrid
+
+Down-sample the majority class and synthesize new data points in the minority class.
+
+```{r}
+train_ctrl <- trainControl(method = "repeatedcv", repeats = 3, classProbs=TRUE, summaryFunction=twoClassSummary, sampling="smote")
+lda_smote_3x10cv <- train(type ~ ., data = training_un, method = "LogitBoost", metric="ROC", trControl = train_ctrl)
+lda_smote_3x10cv
+```
 
 # Feature Selection
 
@@ -594,6 +686,8 @@ pca_res$x %>%
     ) +
     theme(legend.position = "top")
 ```
+
+The `preProcess` parameter defines the preprocessing steps to be applied. They are popular with classic numeric variables, such as imputation of missing values, centering and scaling, etc. As NLP datasets have their own preprocessing tools, they have not been applied until now. However, caret offers `pca` as a prepocessing option. Two more preprocessing functions are applied: centering and scaling.
 
 ```{r}
 # fixing the performance estimation procedure
