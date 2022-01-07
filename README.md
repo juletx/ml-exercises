@@ -11,3 +11,5 @@
 ## [Text Processing in R](https://juletx.github.io/ml-exercises/text_processing/src/text_processing.nb.html)
 
 ## [Clustering and Classification in R](https://juletx.github.io/ml-exercises/clustering_classification/src/clustering_classification.nb.html)
+
+## [Preprocessing, Clustering and Classification in R](https://juletx.github.io/ml-exercises/proprocess_clustering_classification/src/proprocess_clustering_classification.nb.html)
