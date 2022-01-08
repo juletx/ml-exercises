@@ -629,9 +629,24 @@ lda_smote_3x10cv
 
 # Feature Selection
 
-## Univariate Filters
+Most approaches for reducing the number of predictors can be placed into two main categories: wrappers and filters.
+
+Wrapper methods evaluate multiple models using procedures that add and/or remove predictors to find the optimal combination that maximizes model performance. In essence, wrapper methods are search algorithms that treat the predictors as the inputs and utilize model performance as the output to be optimized.
+
+Filter methods evaluate the relevance of the predictors outside of the predictive models and subsequently model only the predictors that pass some criterion. Each predictor is ecaluated individually to check if there is a plausible relationship between it and the observed classes. Only predictors with important relationships would then be included in a classification model.
+
+The functions are applied to the entire training set and also to different resampled versions of the data set. From this, generalizable estimates of performance can be computed that properly take into account the feature selection step.
+
+In our case we will test Univariate Filter and 2 wrapper methods: Recursive Feature Elimination and Simulated Annealing.
+
+## Univariate Filter
+
+Predictors can be filtered by conducting some sort of sample test to see if the mean of the predictor is different between the classes. Predictors that have statistically significant differences between the classes are then used for modeling.
+
+On average, less than 80 variables are selected and the accuracy of the classifiers is improved. Therefore, this method is a great option in this case.
 
 ```{r}
+library(randomForest)
 sbf_ctrl <- sbfControl(functions = rfSBF, method = "repeatedcv", repeats = 3)
 train_ctrl <- trainControl(method = "repeatedcv", repeats = 3, classProbs = TRUE)
 lr_sbf_3x10cv <- sbf(type ~ ., data = training, method = "LogitBoost", trControl = train_ctrl, sbfControl = sbf_ctrl)
@@ -642,6 +657,10 @@ lda_sbf_3x10cv
 
 ## Recursive Feature Elimination
 
+First, the algorithm fits the model to all predictors. Each predictor is ranked using it’s importance to the model. At each iteration of feature selection, the top ranked predictors are retained, the model is refit and performance is assessed. The number of predictors with the best performance is determined and the top predictors are used to fit the final model. In this case 4, 8, 16 and 181 predictors are tested.
+
+The accuracy of the classifiers is improved. Therefore, this method is also a great option in this case.
+
 ```{r}
 rfe_ctrl <- rfeControl(functions = rfFuncs, method = "repeatedcv", repeats = 3)
 train_ctrl <- trainControl(method = "repeatedcv", repeats = 3)
@@ -651,7 +670,20 @@ lda_rfe_3x10cv <- rfe(type ~ ., data = training, method = "lda", trControl = tra
 lda_rfe_3x10cv
 ```
 
-## Simuated Annealing
+## Simulated Annealing
+
+Simulated annealing is a global search method that makes small perturbations to an initial candidate solution. If the performance value for the perturbed value is better than the previous solution, the new solution is accepted. If not, an acceptance probability is determined based on the difference between the two performance values and the current iteration of the search. In the context of feature selection, a solution is a binary vector that describes the current subset. The subset is perturbed by randomly changing a small number of members in the subset.
+
+Using this method the accuracy of the models decreases a lot, so it is not a good option.
+
+```{r}
+safs_ctrl <- safsControl(functions = caretSA, method = "repeatedcv", repeats = 3)
+train_ctrl <- trainControl(method = "repeatedcv", repeats = 3)
+lr_safs_3x10cv <- safs(x = training[, -ncol(training)], y = training$type, method = "LogitBoost", trControl = train_ctrl, safsControl = safs_ctrl)
+lr_safs_3x10cv
+lda_safs_3x10cv <- safs(x = training[, -ncol(training)], y = training$type, method = "lda", trControl = train_ctrl, safsControl = safs_ctrl)
+lda_safs_3x10cv
+```
 
 ```{r}
 safs_ctrl <- safsControl(functions = caretSA, method = "repeatedcv", repeats = 3)
@@ -664,30 +696,43 @@ lda_safs_3x10cv
 
 # Feature Extraction
 
-## Principal Component Analysis (PCA)
+A set of features is constructed from original ones: commonly, linear combinations of original ones. There are multiple method to do feature extraction such as Principal Component Analysis (PCA) and Singular Value Decomposition. This time we will only apply PCA. 
+
+## Summary Table
+
+It is easy to learn a PCA in R with the `prcomp` function. First, we will print the summary of the principal components. We can see that there are 181 principal components. The principal components are not very good, their proportion of variance is generally very low. We would have to select many principal components to get a high proportion of variance.
 
 ```{r}
 pca_res <- prcomp(scale(training[, -ncol(training)]))
-var_explained <- pca_res$sdev^2 / sum(pca_res$sdev^2)
-var_explained[1:5]
-plot(var_explained)
+summary(pca_res)
 ```
+
+## Variance Plots
+
+We can visualize the previous values in different plots to get abetter idea of the variance of the principal components.
 
 ```{r}
-library(tidyverse)
-pca_res$x %>%
-    as.data.frame() %>%
-    ggplot(aes(x = PC1, y = PC2)) +
-    geom_point(size = 4) +
-    theme_bw(base_size = 32) +
-    labs(
-        x = paste0("PC1: ", round(var_explained[1] * 100, 1), "%"),
-        y = paste0("PC2: ", round(var_explained[2] * 100, 1), "%")
-    ) +
-    theme(legend.position = "top")
+pca_res_var <- pca_res$sdev ^ 2
+pca_res_pvar <- pca_res_var/sum(pca_res_var)
+
+plot(pca_res_pvar,xlab="Principal component", ylab="Proportion of variance explained", ylim=c(0,1), type='b')
+plot(cumsum(pca_res_pvar),xlab="Principal component", ylab="Cumulative Proportion of variance explained", ylim=c(0,1), type='b')
+screeplot(pca_res,type="l")
 ```
 
-The `preProcess` parameter defines the preprocessing steps to be applied. They are popular with classic numeric variables, such as imputation of missing values, centering and scaling, etc. As NLP datasets have their own preprocessing tools, they have not been applied until now. However, caret offers `pca` as a prepocessing option. Two more preprocessing functions are applied: centering and scaling.
+## Main Components Plot
+
+We visualize in a 2-D graph two first components, those that save larger variability of original data. The aim is to find an intuitive separation of problem classes. As expected, there is no clear separation between the classes. The variance of the principal components is too low to decide the two classes.
+
+```{r}
+plot(main="Principal Components", pca_res$x[,1:2], col = training$type)
+```
+
+## Classification
+
+Finally, we can use `caret` to test the performance of the two models if we apply PCA as a preprocessing option. The `preProcess` parameter defines the preprocessing steps to be applied. They are popular with classic numeric variables, such as imputation of missing values, centering and scaling, etc. As NLP datasets have their own preprocessing tools, they have not been applied until now. However, caret offers `pca` as a prepocessing option. Two more preprocessing functions are applied: `center` and `scale`.
+
+As we expected, applying PCA does not improve the results of the classifiers. In fact, the results are worse for both classifiers.
 
 ```{r}
 # fixing the performance estimation procedure
@@ -701,6 +746,8 @@ lda_pca_3x10cv
 # Testing
 
 In order to predict the class value of unseen documents of the test partition caret uses the classifier which shows the best accuracy estimation of their parameters. Function predict implements this functionality. Consult its parameters. The `type` parameter, by means of its `probs` value, outputs the probability of test each sample belonging to each class (“a-posteriori” probability). On the other hand, the `raw` value outputs the class value with the largest probability. By means of the `raw` option the confusion matrix can be calculated: this crosses, for each test sample, predicted with real class values.
+
+All the previously learned classifiers are tested on the test partition. There are 10 different classifiers in total, the two main types with the variations of feature selection and extraction. As expected, the accuracy for the testing partition is a bit lower than the train partition. Specificity is higher than Sensitivity in all the cases, which means that our model is better at predicting samples of class 2: clashroyale. This can also be seen in the confusion matrixes. The performance of each algorithm will be compared more in detail in the next section.
 
 ## Boosted Logistic Regression
 
