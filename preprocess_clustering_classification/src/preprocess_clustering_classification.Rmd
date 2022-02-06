@@ -1,5 +1,5 @@
 ---
-title: 'Preprocessing, clustering and classification in R'
+title: 'Preprocessing, clustering and classification of tweets in R'
 author: 'Julen Etxaniz'
 output:
   html_notebook: 
@@ -387,7 +387,9 @@ wordcloud(words = names(word_freqs), freq = word_freqs, max.words = 50, scale = 
 
 ## Clustering Words
 
-We try to find clusters of words with hierarchical clustering, a popular clustering techniques which builds a dendogram to iteratively group pairs of similar objects. To do so, a matrix which has removed sparse is needed: the starting point is the 0.8 sparseness-value matrix. After the application of the matrix-casting operator, number of occurrences are scaled: first column (term) mean is substracted, and then this is divided by its standard deviation. It is needed to calculate the distance between pairs of objects (terms): these are saved in `dist_matrix`. The `dist` operator performs this calculation between pairs of rows of the provided matrix. As terms appear in the columns of the document-term matrix (`corpus_dtm_97`), it is needed to be transposed by means of the `t` operator. The clustering-dendogram is built with the `hclust` operator. It needs as input the calculated distance matrix between pairs of terms and a criteria to decide which pair of clusters to be consecutively joined in the bottom-up dendogram. In this case, the “complete” criteria takes into account the maximum distance between any pair of objects (terms) of both clusters to be merged. Heigth in the dendogram denotes the *distance* between a merged pair of clusters.
+We try to find clusters of words with hierarchical clustering, a popular clustering techniques which builds a dendogram to iteratively group pairs of similar objects. To do so, a matrix with the sparse terms removed is needed. We select the 0.97 sparsity matrix so that we can visualize them. After the application of the matrix-casting operator, number of occurrences are scaled.
+
+We need to calculate the distance between pairs of terms. The `dist` operator performs this calculation between pairs of rows of the provided matrix. As terms appear in the columns of the document-term matrix (`corpus_dtm_97`), it needs to be transposed by means of the `t` operator. The clustering-dendogram is built with the `hclust` operator. It needs as input the calculated distance matrix between pairs of terms and a criteria to decide which pair of clusters to be consecutively joined in the bottom-up dendogram. In this case, the “complete” criteria takes into account the maximum distance between any pair of terms of both clusters to be merged. Heigth in the dendogram denotes the *distance* between a merged pair of clusters.
 
 ```{r}
 dist_matrix <- dist(t(scale(as.matrix(corpus_dtm_97))))
@@ -395,12 +397,9 @@ term_clustering <- hclust(dist_matrix, method = "complete")
 plot(term_clustering)
 ```
 
-Instead of hierarchical clustering and following a similar set of functions, the `fpc` package allows to construct a `k-means` clustering.
-
-
 ## Clustering Documents
 
-Another type of popular NLP machine-learning analysis is to construct clusters of similar documents based on the frequencies of word occurrences.
+Another type of popular task is to construct clusters of similar documents based on the frequencies of word occurrences. Here we select a small subset of the initial corpus, 15 documents from each class. We then apply a similar method to the previous one and try to divide documents into two clusters.
 
 ```{r}
 dist_matrix <- dist(scale(as.matrix(corpus_dtm_99)[(n - 15):(n + 15), ]))
@@ -409,17 +408,13 @@ plot(groups, cex = 0.9, hang = -1)
 rect.hclust(groups, k = 2)
 ```
 
-# Classification
+# Data Splitting
 
-The `caret` [4, 5] package is the reference tool for building supervised classification and regression models in R. The following shows the current top machine learning packages in `R`: https://www.kdnuggets.com/2017/02/top-r-packages-machine-learning.html. `caret` package covers all the steps of a classic pipeline: data preprocessing, model building, accuracy estimation, prediction of the type of new samples, and statistical comparision between the performance of different models. Another similar package is `mlr3`. If you are interested, you can find an interesting tutorial: https://mlr3.mlr-org.com/.
+Before learning a classification model we have to define the subsets of samples (documents) to train and test our model. We first need create a Data Frame from the Document Term Matrix.
 
-Very useful: the cheatsheet of caret: https://github.com/CABAH/learningRresources/blob/main/cheatsheets/caret.pdf. Its principal functions illustrated in a single page.
+## Create Data Frame
 
-Our objective is to learn a classifier-model which, based on terms occurrences, predicts the type of future documents. We have a two-class problem.
-
-## Create DataFrame
-
-The 0.99 sparseness value document-term matrix is our starting point. We first need to append the class vector as the last column of the matrix. There are 1000 documents of each class.
+The 0.99 sparseness value document-term matrix is our starting point. This matrix has 181 features, which correspond to the mos frequent terms. We first need to append the class vector as the last column of the matrix. There are 1000 documents of each class, 2000 documents in total.
 
 ```{r}
 dim(corpus_dtm_99)
@@ -428,7 +423,7 @@ corpus_dtm_99 <- cbind(corpus_dtm_99, type) # append
 dim(corpus_dtm_99) # consult the updated number of columns
 ```
 
-This new matrix is the starting point for any software specialized on supervised classification. However, it is needed to concatenate “matrix” and “data.frame” casting operations. The name of the last column is updated. All the values are converted to numeric and the last column is converted to factor.
+This new matrix is the starting point for supervised classification. However, we first need to convert it to a dataframe. The name of the last column is updated. All the values are converted to numeric and the last column is converted to factor.
 
 ```{r}
 corpus_df_99 <- as.data.frame(as.matrix(corpus_dtm_99))
@@ -442,7 +437,7 @@ levels(corpus_df_99$type) <- c("clashofclans", "clashroyale")
 
 ## Create Data Partition
 
-Before learning a classification model it is needed to define the subsets of samples (documents) to train and test the it. The `createDataPartition` produces a train-test partition of our corpus. This will be maintained during the whole pipeline of analysis. Test samples won’t be used for any modeling decision: only to predict their class and create a confusion matrix. A list of randomly sampled numbers (`in_train`) is used to partition the whole corpus in two `R` objects. 75% of the samples are used for training and the remaining 25% is used for testing.
+The `createDataPartition` produces a train-test partition of our corpus. This will be maintained during the whole pipeline of analysis. Test samples won't be used for any modeling decision. We will only use them at the end to predict their class and create a confusion matrix. A list of randomly sampled numbers (`in_train`) is used to partition the whole corpus. 75% of the samples are used for training and the remaining 25% is used for testing.
 
 ```{r}
 library(caret)
@@ -466,35 +461,33 @@ folds <- createFolds(y = corpus_df_99$type)
 str(folds)
 ```
 
-## Select Classifiers
+# Classification
 
-We now can start training and testing different supervised classification models. train function implements the building process. Check its parameters: among them, we highlight the following:
+The `caret` [4, 5] package is the reference tool for building supervised classification and regression models in R. It covers all the steps of a classic pipeline: data preprocessing, model building, accuracy estimation, prediction of the type of new samples, and statistical comparison between the performance of different models. This cheatsheet of caret illustrates its main function in a single page: https://github.com/CABAH/learningRresources/blob/main/cheatsheets/caret.pdf.
 
+Our objective is to learn a classifier that predicts the type of future documents based on terms occurrences. We have a two-class supervised classification problem.
 
+We now can start training and testing different supervised classification models. The `train` function implements the building process.
 
-* `trControl` parameter defines the method to estimate the error of the classifier. It is defined by means of the application of the `trainControl` function. This allows the use of different performance estimation procedures such as k-fold cross-validation, bootstrapping, etc. We apply a 10-fold cross-validation, repeated 3 times.
+* `form` parameter is used with the expression `type ~ .` to denote the variable to be predicted, followed by the set of predictors. A point indicates that the rest of variables are used as predictors. `data` parameter is used for the training data. 
 
-* `method` parameter fixes the type of classification algorithm to be learned. The wide list of algorithms (and its parameters) covered by `caret` can be found in https://topepo.github.io/caret/train-models-by-tag.html. Taking into account the large dimensionality of classic NLP datasets, the use of classifiers capable to deal with this characteristic is highly recommended. In this tutorial, Linear support vector machine (SVM) and k-nearest neighbour (K-NN) models are learned and validated.
+* `method` parameter fixes the type of classification algorithm to be learned. `caret` supports more than 150 supervised classification and regression algorithms. Taking into account the large dimensionality of classic NLP datasets, we have to use classifiers capable to deal with this. In this work we choose Linear Discriminant Analysis (LDA) and Boosted Logistic Regression (LR).
 
-* `metric` parameter fixes the score to assess-validates the goodness of each model. Apart from the ROC metric used in this tutorial, a large set of metrics is offered: Accuracy (percentage of correct classification), kappa, Sens (Sensitivity), Specificity (Spec), RMSE in the case of regression problems... I have not found a list with all the metrics offered by `caret`, but consulting the help of the package will give you a broad idea.
+* `metric` parameter fixes the score to assess-validates the goodness of each model. A large set of metrics is offered and we test the following ones: Accuracy, Kappa, ROC, Sensitivity and Specificity.
 
-Take into account the following facts about the model-training step:
-
-* the expression `type ~` is quite popular in R to denote the specific variable to be predicted, followed by the set of predictors. A point indicates that the rest of variables are used as predictors.
-
-
-
-* `caret` supports more than 150 supervised classification and regression algorithms. A small portion of them are learned by means of the software of the package itself. The majority of the algorithms are learned by other `R` packages which are conveniently accessed by `caret`.
+* `trControl` parameter defines the method to estimate the error of the classifier. The `trainControl` function allows the use of different performance estimation procedures such as k-fold cross-validation, bootstrapping, etc. We apply a 10-fold cross-validation, repeated 3 times. This is an adequate option because it creates 30 results that can later be used to compare algorithms statistically.
 
 ## Linear Discriminant Analysis
 
 ![Linear Discirminant Analysis](../images/linear_discriminant_analysis.png)
 
+LDA is used to find a linear combination of features that characterizes or separates two or more classes. The resulting combination can be used as a linear classifier, or for dimensionality reduction. This time we will use it as a classifier. We will see a similar unsupervised method called Principal Component Analysis (PCA) for dimensionality reduction in the Feature Extraction section.
+
 Accuracy and Kappa are the default metrics used to evaluate algorithms on binary and multi-class classification datasets in caret. As we have to do binary classification, these metrics are adequate. Our classes are completely balanced, and that makes analysing the metrics easier.
 
 Accuracy is the percentage of correctly classifies instances out of all instances. It is more useful on a binary classification than multi-class classification problems because it can be less clear exactly how the accuracy breaks down across those classes. This could be seen with a confusion matrix.
 
-Kappa is similar to accuracy, but it is normalized at the baseline of random chance on your dataset. It is a more useful measure to use on problems that have an imbalance in the classes. For example, in a 70-30 split for classes 0 and 1 and you can achieve 70% accuracy by predicting all instances are for class 0. As our classes are completely balanced, 50% accuracy is obtained by predicting any of the classes for all instances.
+Kappa is similar to accuracy, but it is normalized at the baseline of random chance on our dataset. It is a more useful measure to use on problems that have an imbalance in the classes. For example, in a 70-30 split for classes 0 and 1 and you can achieve 70% accuracy by predicting all instances are for class 0. As our classes are completely balanced, 50% accuracy is obtained by predicting any of the classes for all instances.
 
 The obtained accuracy is not very good, but this is expected because the problem is not an easy one. The kappa metric also reflects that our classifier is quite bad.
 
@@ -505,17 +498,17 @@ lda_3x10cv <- train(type ~ ., data = training, method = "lda", trControl = train
 lda_3x10cv
 ```
 
-The training process can still be enriched with extra parameters in the `trainControl` function: `summaryFunction` controls the type of evaluation metrics. In binary classification problems the `twoClassSummary` option displays area under the ROC curve, sensitity and specificity metrics. To do so, activating the `classProbs` option is needed, which saves the probability that the classifier assigns to each sample belonging to each class-value.
-
-ROC metrics are only suitable for binary classification problems. The area under the ROC curve represents a models ability to discriminate between positive and negative classes. An area of 1.0 represents a model that made all predicts perfectly. An area of 0.5 represents a model as good as random.
+Another metric that is only suitable for binary classification problems is ROC. The area under the ROC curve represents a models ability to discriminate between positive and negative classes. An area of 1.0 represents a model that made all predicts perfectly. An area of 0.5 represents a model as good as random.
 
 ROC can be broken down into sensitivity and specificity. A binary classification problem is really a trade-off between sensitivity and specificity. Sensitivity is the true positive rate also called the recall. It is the number instances from the positive (first) class that actually predicted correctly. Specificity is also called the true negative rate. Is the number of instances from the negative (second) class that were actually predicted correctly.
 
-Looking at this numbers, we realise that the second class is predicted correctly more times than the first one. The first class is predicted correctly 67% of the times and the second one 90% of the times. This will also be evident if we calculate a confusion matrix when testing the model.
+To use this metric we have to select it in the function parameters. Moreover, extra parameters must be added to the `trainControl` function. In binary classification problems the `twoClassSummary` option displays area under the ROC curve, sensitity and specificity metrics. To do so, activating the `classProbs` option is also needed, which saves the class probabilities that the classifier assigns to each sample.
+
+Looking at these numbers, we realise that the second class is predicted correctly more times than the first one. The first class is predicted correctly 67% of the times and the second one 90% of the times. This will also be evident if we calculate a confusion matrix when testing the model.
 
 ```{r}
 library(pROC)
-train_ctrl <- trainControl(method = "repeatedcv",repeats=3, classProbs=TRUE, summaryFunction=twoClassSummary)
+train_ctrl <- trainControl(method = "repeatedcv", repeats = 3, classProbs = TRUE, summaryFunction = twoClassSummary)
 lda_roc_3x10cv <- train(type ~ ., data = training, method = "lda", metric="ROC", trControl = train_ctrl)
 lda_roc_3x10cv
 ```
@@ -524,7 +517,9 @@ lda_roc_3x10cv
 
 ![Logistic Regression](../images/logistic_regression.png)
 
-While the linear LDA classifier does not have parameters, LR has the `nIter` key parameter. This parameter indicates the number of iterations of the Logistic Regression model. By default, without changing the value of the parameter, `caret` evaluates 3 models (`tuneLength` equal to 3). The `tuneLength` option of the `train` function fixes the number of values of each parameter to be checked. For example, if the classifier has 2 parameters and the `tuneLength` parameter is not changed, 3 x 3 = 9 models are evaluated.
+Logistic Regression is used to model the probability of a certain class. It uses a linear combination of independent variables, and applies the logistic function at the end to obtain probabilities. If we define a cut-off probability, it can be used as a binary or multi-class classification model. Boosted LR is an additive logistic regression model. It uses and ensemble of similar LR models to make predictions.
+
+While the linear LDA classifier does not have parameters, LR has the `nIter` key parameter. This parameter indicates the number of iterations of the Logistic Regression model. By default, without changing the value of the parameter, `caret` evaluates 3 models. The `tuneLength` option of the `train` function fixes the number of values of each parameter to be checked. For example, if the classifier has 2 parameters and the `tuneLength` parameter is not changed, 3 x 3 = 9 models are evaluated.
 
 ```{r}
 train_ctrl <- trainControl(
@@ -550,10 +545,10 @@ lr_tunel_3x10cv
 plot(lr_tunel_3x10cv)
 ```
 
-We can also try the ROC metric
+We can also try the ROC metric to have more information about the performance of our model. We get similar results to the LDA classifier, with a much higher Specificity than Sensitivity.
 
 ```{r}
-train_ctrl <- trainControl(method = "repeatedcv",repeats=3, classProbs=TRUE, summaryFunction=twoClassSummary)
+train_ctrl <- trainControl(method = "repeatedcv", repeats = 3, classProbs = TRUE, summaryFunction = twoClassSummary)
 lr_roc_3x10cv <- train(type ~ ., data=training, method="LogitBoost", trControl=train_ctrl, metric="ROC", tuneLength=15)
 lr_roc_3x10cv
 plot(lr_roc_3x10cv)
@@ -577,11 +572,11 @@ plot(lr_tuneg_3x10cv)
 
 # Subsampling
 
-Our initial corpus is completely balanced, it has 1000 samples of each class. However, we can create an unbalanced corpus by removing some samples. For example, we can create a corpus that has 1000 samples of one class and 200 from the other class. If class-label distributions are unbalanced in our corpus, a resampling method which will try to improve the recovery rate in the minority class.
+Our initial corpus is completely balanced, it has 1000 samples of each class. However, we can create an unbalanced corpus by removing some samples. For example, we can create a corpus that has 1000 samples of one class and 250 from the other class. If class-label distributions are unbalanced in our corpus, a resampling method will try to improve the recovery rate in the minority class.
 
-This test will only be performed with the LR classifier. First, a normal classifier will be trained. Then multiple resampling methods will be tested and compared with the base classifier. ROC is an adequeate metric in this case. We can compare the sensitivity and specificity for each subsampling method. 
+This test will only be performed with the LR classifier. First, a normal classifier will be trained. Then multiple resampling methods will be tested and compared with the base classifier. ROC is an adequeate metric in this case because we can compare the sensitivity and specificity for each subsampling method.
 
-We expect to have very high specificity but low sensitivity. Therefore, our aim is to increase sensistivity. Downsampling and upsampling improve the sensitivity a bit and rose method gets worse results.
+We expect to have very high specificity but low sensitivity. Therefore, our aim is to increase sensistivity. Downsampling and upsampling improve the sensitivity a bit and the hybrid method gets worse results.
 
 ```{r}
 corpus_df_99_un = corpus_df_99[1:(n+n/4), ]
@@ -599,7 +594,7 @@ lda_un_3x10cv
 
 ## Downsampling
 
-Randomly subset all the classes in the training set so that their class frequencies match the least prevalent class. For example, suppose that 80% of the training set samples are the first class and the remaining 20% are in the second class. Down-sampling would randomly sample the first class to be the same size as the second class (so that only 40% of the total training set is used to fit the model).
+Downsampling randomly subsets all the classes in the training set so that their class frequencies match the least prevalent class. For example, suppose that 80% of the training set samples are the first class and the remaining 20% are in the second class. Down-sampling would randomly sample the first class to be the same size as the second class (so that only 40% of the total training set is used to fit the model).
 
 ```{r}
 train_ctrl <- trainControl(method = "repeatedcv", repeats = 3, classProbs=TRUE, summaryFunction=twoClassSummary, sampling="down")
@@ -609,7 +604,7 @@ lda_down_3x10cv
 
 ## Upsampling
 
-Randomly sample (with replacement) the minority class to be the same size as the majority class.
+Upsampling randomly samples the minority class to be the same size as the majority class.
 
 ```{r}
 train_ctrl <- trainControl(method = "repeatedcv", repeats = 3, classProbs=TRUE, summaryFunction=twoClassSummary, sampling="up")
@@ -619,7 +614,7 @@ lda_up_3x10cv
 
 ## Hybrid
 
-Down-sample the majority class and synthesize new data points in the minority class.
+An hybrid method downsamples the majority class and synthesizes new data points in the minority class.
 
 ```{r}
 train_ctrl <- trainControl(method = "repeatedcv", repeats = 3, classProbs=TRUE, summaryFunction=twoClassSummary, sampling="smote")
@@ -629,7 +624,7 @@ lda_smote_3x10cv
 
 # Feature Selection
 
-Most approaches for reducing the number of predictors can be placed into two main categories: wrappers and filters.
+Most approaches for reducing the number of features can be placed into two main categories: wrappers and filters.
 
 Wrapper methods evaluate multiple models using procedures that add and/or remove predictors to find the optimal combination that maximizes model performance. In essence, wrapper methods are search algorithms that treat the predictors as the inputs and utilize model performance as the output to be optimized.
 
@@ -637,7 +632,7 @@ Filter methods evaluate the relevance of the predictors outside of the predictiv
 
 The functions are applied to the entire training set and also to different resampled versions of the data set. From this, generalizable estimates of performance can be computed that properly take into account the feature selection step.
 
-In our case we will test Univariate Filter and 2 wrapper methods: Recursive Feature Elimination and Simulated Annealing.
+In our case we will test Univariate Filter and 2 wrapper methods: Recursive Feature Elimination and Simulated Annealing. We will apply these methods to both classifiers and we will compare the results at the end.
 
 ## Univariate Filter
 
@@ -685,18 +680,9 @@ lda_safs_3x10cv <- safs(x = training[, -ncol(training)], y = training$type, meth
 lda_safs_3x10cv
 ```
 
-```{r}
-safs_ctrl <- safsControl(functions = caretSA, method = "repeatedcv", repeats = 3)
-train_ctrl <- trainControl(method = "repeatedcv", repeats = 3)
-lr_safs_3x10cv <- safs(x = training[, -ncol(training)], y = training$type, method = "LogitBoost", trControl = train_ctrl, safsControl = safs_ctrl)
-lr_safs_3x10cv
-lda_safs_3x10cv <- safs(x = training[, -ncol(training)], y = training$type, method = "lda", trControl = train_ctrl, safsControl = safs_ctrl)
-lda_safs_3x10cv
-```
-
 # Feature Extraction
 
-A set of features is constructed from original ones: commonly, linear combinations of original ones. There are multiple method to do feature extraction such as Principal Component Analysis (PCA) and Singular Value Decomposition. This time we will only apply PCA. 
+Unlike feature selection, set of new features is constructed from original ones, which are commonly linear combinations of original ones. There are multiple methods to do feature extraction such as Principal Component Analysis (PCA) and Linear Discriminant Analysis (LDA). Unlike PCA, LDA is a supervised method that can also be used for classification. This time we will only apply PCA to both classifiers, because one of our classifiers is LDA.
 
 ## Summary Table
 
@@ -745,69 +731,88 @@ lda_pca_3x10cv
 
 # Testing
 
-In order to predict the class value of unseen documents of the test partition caret uses the classifier which shows the best accuracy estimation of their parameters. Function predict implements this functionality. Consult its parameters. The `type` parameter, by means of its `probs` value, outputs the probability of test each sample belonging to each class (“a-posteriori” probability). On the other hand, the `raw` value outputs the class value with the largest probability. By means of the `raw` option the confusion matrix can be calculated: this crosses, for each test sample, predicted with real class values.
+In order to predict the class value of unseen documents of the test partition caret uses the classifier which shows the best accuracy estimation of their parameters. Function predict implements this functionality. Consult its parameters. The `type` parameter, by means of its `probs` value, outputs the probability of test each sample belonging to each class. On the other hand, the `raw` value outputs the class value with the largest probability. By means of the `raw` option the confusion matrix can be calculated: this crosses, for each test sample, predicted with real class values.
 
-All the previously learned classifiers are tested on the test partition. There are 10 different classifiers in total, the two main types with the variations of feature selection and extraction. As expected, the accuracy for the testing partition is a bit lower than the train partition. Specificity is higher than Sensitivity in all the cases, which means that our model is better at predicting samples of class 2: clashroyale. This can also be seen in the confusion matrixes. The performance of each algorithm will be compared more in detail in the next section.
+All the previously learned classifiers are tested on the test partition. There are 10 different classifiers in total, the two main types with the variations of feature selection and extraction. As expected, the accuracy for the testing partition is a bit lower than the train partition. Specificity is higher than Sensitivity in all the cases, which means that our model is better at predicting samples of class 2: clashroyale. This can also be seen in the confusion matrices. The performance of each algorithm will be compared more in detail in the next section.
 
-## Boosted Logistic Regression
-
-```{r}
-lr_pred <- predict(lr_3x10cv, newdata = testing, type = "raw")
-confusionMatrix(data = lr_pred, testing$type)
-```
-
-```{r}
-lr_sbf_pred <- predict(lr_sbf_3x10cv, newdata = testing, type = "raw")
-confusionMatrix(data = lr_sbf_pred$pred, testing$type)
-```
-
-```{r}
-lr_rfe_pred <- predict(lr_rfe_3x10cv, newdata = testing)
-confusionMatrix(data = lr_rfe_pred$pred, testing$type)
-```
-
-```{r}
-lr_safs_pred <- predict(lr_safs_3x10cv, newdata = testing, type = "raw")
-confusionMatrix(data = lr_safs_pred, testing$type)
-```
-
-```{r}
-lr_pca_pred <- predict(lr_pca_3x10cv, newdata = testing, type = "raw")
-confusionMatrix(data = lr_pca_pred, testing$type)
-```
-
-## Linear Disciminant Analysis
+## LDA
 
 ```{r}
 lda_pred <- predict(lda_3x10cv, newdata = testing, type = "raw")
 confusionMatrix(data = lda_pred, testing$type)
 ```
+## LDA SBF
 
 ```{r}
 lda_sbf_pred <- predict(lda_sbf_3x10cv, newdata = testing, type = "raw")
 confusionMatrix(data = lda_sbf_pred$pred, testing$type)
 ```
 
+## LDA RFE
+
 ```{r}
 lda_rfe_pred <- predict(lda_rfe_3x10cv, newdata = testing)
 confusionMatrix(data = lda_rfe_pred$pred, testing$type)
 ```
+
+## LDA SAFS
 
 ```{r}
 lda_safs_pred <- predict(lda_safs_3x10cv, newdata = testing, type = "raw")
 confusionMatrix(data = lda_safs_pred, testing$type)
 ```
 
+## LDA PCA
+
 ```{r}
 lda_pca_pred <- predict(lda_pca_3x10cv, newdata = testing, type = "raw")
 confusionMatrix(data = lda_pca_pred, testing$type)
 ```
 
+## BLR
+
+```{r}
+lr_pred <- predict(lr_3x10cv, newdata = testing, type = "raw")
+confusionMatrix(data = lr_pred, testing$type)
+```
+
+## BLR SBF
+
+```{r}
+lr_sbf_pred <- predict(lr_sbf_3x10cv, newdata = testing, type = "raw")
+confusionMatrix(data = lr_sbf_pred$pred, testing$type)
+```
+
+## BLR RFE
+
+```{r}
+lr_rfe_pred <- predict(lr_rfe_3x10cv, newdata = testing)
+confusionMatrix(data = lr_rfe_pred$pred, testing$type)
+```
+
+## BLR SAFS
+
+```{r}
+lr_safs_pred <- predict(lr_safs_3x10cv, newdata = testing, type = "raw")
+confusionMatrix(data = lr_safs_pred, testing$type)
+```
+
+## BLR PCA
+
+```{r}
+lr_pca_pred <- predict(lr_pca_3x10cv, newdata = testing, type = "raw")
+confusionMatrix(data = lr_pca_pred, testing$type)
+```
+
 # Comparison
+
+As a final step, we will compare the 10 models that we have trained. First, we will compare the results in a table. Then, we will create some plots to compare performance of the algorithms visually. Finally, we will perform a statistical significance test to know if there is a significant difference between pairs of classifiers. 
 
 ## Summary Tables
 
-This is the easiest comparison that you can do, simply call the summary function() and pass it the resamples result. It will create a table with one algorithm for each row and evaluation metrics for each column.
+This is the easiest comparison that we can do, simply call the `summary` function and pass it the `resamples` result. It will create a table with one algorithm for each row and evaluation metrics for each column. 
+
+By looking at those values we can have an idea of which classifiers are the best ones. If we look at the base classifiers, LDA is better than LR. However, applying SBF or RFE feature selection improves the results of both classifiers and makes them similar. The other feature selection and extraction methods make the results of both classifiers worse.
 
 ```{r}
 resamps <- resamples(list(lr = lr_3x10cv, lr_sbf = lr_sbf_3x10cv, lr_rfe = lr_rfe_3x10cv, lr_safs = lr_safs_3x10cv, lr_pca = lr_pca_3x10cv, lda = lda_3x10cv, lda_sbf = lda_sbf_3x10cv, lda_rfe = lda_rfe_3x10cv, lda_safs = lda_safs_3x10cv, lda_pca = lda_pca_3x10cv))
@@ -816,7 +821,7 @@ summary(resamps)
 
 ## Box and Whisker Plots
 
-This is a useful way to look at the spread of the estimated accuracies for different methods and how they relate. Note that the boxes are ordered from highest to lowest mean accuracy. They areuseful to look at the mean values (dots) and the boxes (middle 50% of results).
+This is a useful way to look at the spread of the estimated accuracies for different methods and how they relate. Note that the boxes are ordered from highest to lowest mean accuracy. They are useful to look at the mean values (dots) and the boxes (middle 50% of results). We can extract the same conclusions we extracted by looking at the table easier by lookin at this plot.
 
 ```{r}
 scales <- list(x=list(relation="free"), y=list(relation="free"))
@@ -825,7 +830,7 @@ bwplot(resamps, scales=scales)
 
 ## Density Plots
 
-You can show the distribution of model accuracy as density plots. This is a useful way to evaluate the overlap in the estimated behavior of algorithms. They are useful to look at the differences in the peaks as well as the spread or base of the distributions.
+We can show the distribution of model accuracy as density plots. This is a useful way to evaluate the overlap in the estimated behavior of algorithms. They are also to look at the differences in the peaks as well as the variance of the distributions.
 
 ```{r}
 scales <- list(x=list(relation="free"), y=list(relation="free"))
@@ -834,7 +839,7 @@ densityplot(resamps, scales=scales, pch = "|")
 
 ## Dot Plots
 
-These are useful plots as the show both the mean estimated accuracy as well as the 95% confidence interval. They are useful to compare the means and the overlap of the spreads between algorithms.
+These are useful plots as the show both the mean estimated accuracy as well as the 95% confidence interval. They are useful to compare the means and the overlap of the spreads between algorithms. We can compare algorithms like we did with the boxplot.
 
 ```{r}
 scales <- list(x=list(relation="free"), y=list(relation="free"))
@@ -843,7 +848,7 @@ dotplot(resamps, scales=scales)
 
 ## Scatterplot Matrix
 
-This creates a scatterplot matrix of all fold-trial results for an algorithm compared to the same fold-trial results for all other algorithms. These are useful to compair pairs of algorithms.
+This creates a scatterplot matrix of all results for an algorithm compared to the results for all other algorithms. These are useful to compare pairs of algorithms.
 
 ```{r fig.height=10, fig.width=10}
 splom(resamps)
@@ -851,7 +856,7 @@ splom(resamps)
 
 ## Pairwise xyPlots
 
-We can zoom in on one pair-wise comparison of the accuracy for two algorithms with an xyplot. For example, we can compare the two main algorithms.
+We can zoom in on one pair-wise comparison of the accuracy for two algorithms with an xyplot. For example, we can compare the two main algorithms to see that LDA is better than LR.
 
 ```{r}
 xyplot(resamps, what = "BlandAltman", models = c("lr", "lda"))
@@ -877,13 +882,15 @@ xyplot(resamps, what = "BlandAltman", models = c("lr", "lr_pca"))
 
 ## Statistical Significance Tests
 
-Note than in our case, due to the 3 repetitions of the 10-fold cross-validation process, there are 30 resampling results for each classifier. First, results of all classifiers are crossed using the `resamples` function. As the `set.seed` did not change, the same paired cross-validation subsets of samples were used for both classifiers. This forces to use a paired t-test to calculate the significance of the differences between both classifiers.
+Note than in our case, due to the 3 repetitions of the 10-fold cross-validation process, there are 30 resampling results for each classifier. The same paired cross-validation subsets of samples were used for all classifiers. We have to use a paired t-test to calculate the significance of the differences between both classifiers.
 
-Using the `diff` function over the `resamps` object which saves the “crossing” of both classifiers, we can show a rich output of the performed comparison: each number matters. The output shows, for each metric (accuracy and kappa), the difference of the mean (positive or negative, following the order in the `resamples` function) between both classifiers. The p-value of the associated t-test is also shown.
+Using the `diff` function over the `resamps` object calculates the differences between all pairs of classifiers. The output shows, for each metric (accuracy and kappa), the difference of the mean (positive or negative) between both classifiers. The p-value of the whole t-test is 0, which indicates that there is a significant difference between some classifiers. Therefore, we can discard the null hypothesis that says that there is no difference between classifiers.
 
-The interpretation of the p-value is the key point. It is related with the risk of erroneously discarding the null-hypothesis of similarity between compared classifiers, when there is no real difference. Roughly speaking, it can also be interpreted as the degree of similarity between both classifiers. A p-value smaller than 0.05 alerts about statistically significant differences between both classifiers. That is, when the risk of erroneusly discarding the hypothesis of similarity between both classifiers is low, we assume that there is a statistically significant difference between classifiers.
+The interpretation of the p-value is the key point. It is related with the risk of erroneously discarding the null-hypothesis of similarity between compared classifiers, when there is no real difference. Roughly speaking, it can also be interpreted as the degree of similarity between both classifiers. A p-value smaller than 0.05 alerts about statistically significant differences between both classifiers. That is, when the risk of erroneously discarding the hypothesis of similarity between both classifiers is low, we assume that there is a statistically significant difference between classifiers.
 
-The lower diagonal of the table shows p-values for the null hypothesis (distributions are the same). The upper diagonal of the table shows the estimated difference between the distributions. We can see that is come cases the p-value is bigger than 0.05 and therefore we can not discard the null hypothesis. In some other cases, the p-value is smaller than 0.05 so we can surely discard the null hypotsesis.
+The lower diagonal of the table shows p-values for the null hypothesis. The upper diagonal of the table shows the estimated difference between the distributions. We can see that is come cases the p-value is bigger than 0.05 and therefore we can not discard the null hypothesis. In some other cases, the p-value is smaller than 0.05 so we can surely discard the null hypothesis.
+
+We can see that all the ideas that we had before when comparing classifiers are confirmed with the statistical test. Some classifiers are significantly better than others. The base LDA is better than the base LR, applying SBF and RFE improves the results and applying SAFS and PCA makes results worse.
 
 ```{r}
 diffs <- diff(resamps)
